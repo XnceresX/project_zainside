@@ -3,9 +3,11 @@ face/detector.py
 ================
 Face detection pipeline for SAFEPASS (Track P1).
 
-Uses MediaPipe Face Detection for lightweight, CPU-friendly face localisation,
-and MediaPipe Face Mesh (468 landmarks) for pose estimation (yaw, pitch, roll)
-and landmark-based occlusion scoring.
+Provides multi-backend face detection and landmark analysis:
+  1. OpenCV YuNet (cv2.FaceDetectorYN) - Fast, lightweight ONNX detector
+     providing bounding boxes and 5 facial landmarks (eyes, nose, mouth).
+  2. MediaPipe Face Detection + Mesh (when available).
+  3. OpenCV Haar Cascade (built-in fallback, zero extra files needed).
 
 Usage:
     from face.detector import FaceDetector
@@ -18,11 +20,19 @@ Usage:
 from __future__ import annotations
 
 import math
+import os
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
 import cv2
 import numpy as np
+
+
+DEFAULT_YUNET_PATHS = [
+    os.path.join("data", "models", "yunet.onnx"),
+    os.path.join("data", "models", "face_detection_yunet_2023mar.onnx"),
+    os.path.join("models", "yunet.onnx"),
+]
 
 
 # ---------------------------------------------------------------------------
@@ -31,10 +41,10 @@ import numpy as np
 
 @dataclass
 class FacePose:
-    """Head pose angles estimated from face mesh landmarks."""
-    yaw: float = 0.0    # Left/right rotation in degrees
-    pitch: float = 0.0  # Up/down rotation in degrees
-    roll: float = 0.0   # Tilt rotation in degrees
+    """Head pose angles estimated from face landmarks."""
+    yaw: float = 0.0    # Left/right rotation in degrees (-90 to +90)
+    pitch: float = 0.0  # Up/down rotation in degrees (-90 to +90)
+    roll: float = 0.0   # Tilt rotation in degrees (-180 to +180)
 
 
 @dataclass
@@ -42,10 +52,10 @@ class DetectedFace:
     """All information extracted for a single detected face in a frame."""
     bbox: Tuple[int, int, int, int]           # (x1, y1, x2, y2) in pixel coords
     face_crop: np.ndarray = field(repr=False) # BGR face crop from the frame
-    detection_confidence: float = 0.0         # MediaPipe detection confidence [0-1]
-    landmarks: Optional[np.ndarray] = None    # (N, 3) normalized landmark coords
+    detection_confidence: float = 0.0         # Detection confidence [0-1]
+    landmarks: Optional[np.ndarray] = None    # (N, 2 or 3) landmark coordinates in pixels
     pose: FacePose = field(default_factory=FacePose)
-    landmark_visibility: float = 1.0          # Fraction of visible key landmarks [0-1]
+    landmark_visibility: float = 1.0          # Visibility ratio of key facial features [0-1]
 
 
 # ---------------------------------------------------------------------------
@@ -54,84 +64,69 @@ class DetectedFace:
 
 class FaceDetector:
     """
-    Two-stage face analysis:
-      1. MediaPipe Face Detection  → bounding box + confidence
-      2. MediaPipe Face Mesh       → 468 landmarks → pose + occlusion
-
-    Parameters
-    ----------
-    detection_confidence : float
-        Minimum confidence for the face detector (default 0.5).
-    mesh_confidence : float
-        Minimum confidence for the face mesh model (default 0.5).
-    max_faces : int
-        Maximum number of faces to detect per frame (default 10).
-    enable_mesh : bool
-        Whether to run the heavier face mesh stage.  Set False if you
-        only need bounding boxes (e.g. for quick person filtering).
+    Robust face detector supporting OpenCV YuNet, MediaPipe, and Haar Cascade.
+    Extracts face bounding boxes, crops, 5-point landmarks, and head pose.
     """
-
-    # Indices of the 6 key landmarks used for head-pose (PnP) estimation.
-    # These are the canonical MediaPipe Face Mesh indices:
-    #   1  = Nose tip
-    #  33  = Right eye right corner
-    # 263  = Left eye left corner
-    #  61  = Right mouth corner
-    # 291  = Left mouth corner
-    # 199  = Chin / lower lip centre
-    _POSE_LANDMARK_IDS = [1, 33, 263, 61, 291, 199]
-
-    # Corresponding approximate 3-D model points (in a generic face model,
-    # units are arbitrary but consistent).
-    _MODEL_POINTS = np.array([
-        (0.0,    0.0,    0.0),     # Nose tip
-        (-30.0, -30.0,  -30.0),    # Right eye right corner
-        (30.0,  -30.0,  -30.0),    # Left eye left corner
-        (-25.0,  25.0,  -15.0),    # Right mouth corner
-        (25.0,   25.0,  -15.0),    # Left mouth corner
-        (0.0,    45.0,  -10.0),    # Chin
-    ], dtype=np.float64)
-
-    # Key facial landmark indices for occlusion/visibility checks.
-    # Left eye, right eye, nose, mouth corners, forehead, chin.
-    _VISIBILITY_LANDMARK_IDS = [
-        1,    # nose tip
-        33,   # right eye outer
-        133,  # right eye inner
-        362,  # left eye inner
-        263,  # left eye outer
-        61,   # right mouth
-        291,  # left mouth
-        10,   # forehead top
-        152,  # chin bottom
-    ]
 
     def __init__(
         self,
+        model_path: Optional[str] = None,
         detection_confidence: float = 0.5,
-        mesh_confidence: float = 0.5,
         max_faces: int = 10,
-        enable_mesh: bool = True,
     ):
-        import mediapipe as mp
+        self.detection_confidence = detection_confidence
+        self.max_faces = max_faces
+        self.backend = "none"
+        self._yunet = None
+        self._haar = None
+        self._mp_detector = None
+        self._mp_mesh = None
 
-        self._mp_face_detection = mp.solutions.face_detection
-        self._mp_face_mesh = mp.solutions.face_mesh
+        # 1. Try OpenCV YuNet
+        yunet_path = self._resolve_yunet_path(model_path)
+        if yunet_path and hasattr(cv2, "FaceDetectorYN"):
+            try:
+                # Initialize with a default size; updated dynamically per frame
+                self._yunet = cv2.FaceDetectorYN.create(
+                    model=yunet_path,
+                    config="",
+                    input_size=(320, 320),
+                    score_threshold=detection_confidence,
+                    nms_threshold=0.3,
+                    top_k=max_faces,
+                )
+                self.backend = "yunet"
+                self.model_path = yunet_path
+            except Exception as e:
+                self._yunet = None
 
-        self._detector = self._mp_face_detection.FaceDetection(
-            model_selection=1,  # 1 = full-range model (better for varied distances)
-            min_detection_confidence=detection_confidence,
-        )
+        # 2. Try MediaPipe solutions if YuNet wasn't initialized
+        if self.backend == "none":
+            try:
+                import mediapipe as mp
+                if hasattr(mp, "solutions") and hasattr(mp.solutions, "face_detection"):
+                    self._mp_detector = mp.solutions.face_detection.FaceDetection(
+                        model_selection=1,
+                        min_detection_confidence=detection_confidence,
+                    )
+                    self.backend = "mediapipe"
+            except Exception:
+                self._mp_detector = None
 
-        self._mesh = None
-        if enable_mesh:
-            self._mesh = self._mp_face_mesh.FaceMesh(
-                static_image_mode=True,
-                max_num_faces=max_faces,
-                refine_landmarks=True,
-                min_detection_confidence=mesh_confidence,
-                min_tracking_confidence=mesh_confidence,
-            )
+        # 3. Always prepare Haar Cascade as fallback
+        haar_path = os.path.join(cv2.data.haarcascades, "haarcascade_frontalface_default.xml")
+        if os.path.exists(haar_path):
+            self._haar = cv2.CascadeClassifier(haar_path)
+            if self.backend == "none":
+                self.backend = "haar"
+
+    def _resolve_yunet_path(self, model_path: Optional[str]) -> Optional[str]:
+        if model_path and os.path.exists(model_path):
+            return model_path
+        for candidate in DEFAULT_YUNET_PATHS:
+            if os.path.exists(candidate):
+                return candidate
+        return None
 
     # ------------------------------------------------------------------
     # Public API
@@ -140,25 +135,91 @@ class FaceDetector:
     def detect(self, frame: np.ndarray) -> List[DetectedFace]:
         """
         Detect all faces in a BGR frame.
-
-        Returns a list of DetectedFace objects sorted by descending
-        detection confidence.
+        Returns a list of DetectedFace objects sorted by confidence descending.
         """
         if frame is None or frame.size == 0:
             return []
 
         h, w = frame.shape[:2]
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        # Stage 1: Face Detection → bounding boxes
-        det_results = self._detector.process(rgb)
-        if not det_results.detections:
+        if self._yunet is not None:
+            return self._detect_yunet(frame, h, w)
+        elif self._mp_detector is not None:
+            return self._detect_mediapipe(frame, h, w)
+        elif self._haar is not None:
+            return self._detect_haar(frame, h, w)
+        else:
+            return []
+
+    def detect_single(self, frame: np.ndarray) -> Optional[DetectedFace]:
+        """Convenience: return the highest-confidence face, or None."""
+        faces = self.detect(frame)
+        return faces[0] if faces else None
+
+    # ------------------------------------------------------------------
+    # Backend 1: OpenCV YuNet
+    # ------------------------------------------------------------------
+
+    def _detect_yunet(self, frame: np.ndarray, h: int, w: int) -> List[DetectedFace]:
+        self._yunet.setInputSize((w, h))
+        _, detections = self._yunet.detect(frame)
+        if detections is None or len(detections) == 0:
             return []
 
         faces: List[DetectedFace] = []
+        for det in detections[:self.max_faces]:
+            x, y, bw, bh = int(det[0]), int(det[1]), int(det[2]), int(det[3])
+            conf = float(det[14])
 
-        for detection in det_results.detections:
-            bbox_rel = detection.location_data.relative_bounding_box
+            # 5 Landmarks: right eye, left eye, nose, right mouth, left mouth
+            landmarks_5 = np.array([
+                [det[4], det[5]],    # Right eye
+                [det[6], det[7]],    # Left eye
+                [det[8], det[9]],    # Nose tip
+                [det[10], det[11]],  # Right mouth corner
+                [det[12], det[13]],  # Left mouth corner
+            ], dtype=np.float32)
+
+            # Pad bounding box by 10%
+            pad_x = int(bw * 0.10)
+            pad_y = int(bh * 0.10)
+            x1 = max(x - pad_x, 0)
+            y1 = max(y - pad_y, 0)
+            x2 = min(x + bw + pad_x, w)
+            y2 = min(y + bh + pad_y, h)
+
+            crop = frame[y1:y2, x1:x2].copy()
+            if crop.size == 0:
+                continue
+
+            pose = self._estimate_pose_from_5_landmarks(landmarks_5)
+            visibility = self._estimate_visibility_from_landmarks(landmarks_5, h, w)
+
+            faces.append(DetectedFace(
+                bbox=(x1, y1, x2, y2),
+                face_crop=crop,
+                detection_confidence=conf,
+                landmarks=landmarks_5,
+                pose=pose,
+                landmark_visibility=visibility,
+            ))
+
+        faces.sort(key=lambda f: f.detection_confidence, reverse=True)
+        return faces
+
+    # ------------------------------------------------------------------
+    # Backend 2: MediaPipe
+    # ------------------------------------------------------------------
+
+    def _detect_mediapipe(self, frame: np.ndarray, h: int, w: int) -> List[DetectedFace]:
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = self._mp_detector.process(rgb)
+        if not results.detections:
+            return []
+
+        faces: List[DetectedFace] = []
+        for det in results.detections[:self.max_faces]:
+            bbox_rel = det.location_data.relative_bounding_box
             x1 = max(int(bbox_rel.xmin * w), 0)
             y1 = max(int(bbox_rel.ymin * h), 0)
             bw = int(bbox_rel.width * w)
@@ -166,7 +227,6 @@ class FaceDetector:
             x2 = min(x1 + bw, w)
             y2 = min(y1 + bh, h)
 
-            # Pad slightly for better crop quality (10% each side)
             pad_x = int(bw * 0.10)
             pad_y = int(bh * 0.10)
             x1p = max(x1 - pad_x, 0)
@@ -178,151 +238,101 @@ class FaceDetector:
             if crop.size == 0:
                 continue
 
-            conf = detection.score[0] if detection.score else 0.0
-
+            conf = float(det.score[0]) if det.score else 0.5
             faces.append(DetectedFace(
                 bbox=(x1p, y1p, x2p, y2p),
                 face_crop=crop,
-                detection_confidence=float(conf),
+                detection_confidence=conf,
+                pose=FacePose(yaw=0.0, pitch=0.0, roll=0.0),
+                landmark_visibility=1.0,
             ))
 
-        # Stage 2: Face Mesh → landmarks, pose, occlusion
-        if self._mesh is not None:
-            mesh_results = self._mesh.process(rgb)
-            if mesh_results.multi_face_landmarks:
-                self._assign_mesh_to_faces(
-                    faces, mesh_results.multi_face_landmarks, h, w
-                )
-
-        # Sort by confidence descending
         faces.sort(key=lambda f: f.detection_confidence, reverse=True)
         return faces
 
-    def detect_single(self, frame: np.ndarray) -> Optional[DetectedFace]:
-        """Convenience: return the highest-confidence face, or None."""
-        faces = self.detect(frame)
-        return faces[0] if faces else None
-
     # ------------------------------------------------------------------
-    # Internals
+    # Backend 3: Haar Cascade Fallback
     # ------------------------------------------------------------------
 
-    def _assign_mesh_to_faces(
-        self,
-        faces: List[DetectedFace],
-        mesh_landmarks_list,
-        frame_h: int,
-        frame_w: int,
-    ):
-        """
-        Match each mesh result to the closest detected face bbox,
-        then compute pose and visibility from the matched landmarks.
-        """
-        for mesh_lm in mesh_landmarks_list:
-            # Convert landmarks to pixel coordinates
-            pts = np.array([
-                (lm.x * frame_w, lm.y * frame_h, lm.z * frame_w)
-                for lm in mesh_lm.landmark
-            ])
+    def _detect_haar(self, frame: np.ndarray, h: int, w: int) -> List[DetectedFace]:
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        rects = self._haar.detectMultiScale(
+            gray,
+            scaleFactor=1.1,
+            minNeighbors=5,
+            minSize=(30, 30),
+        )
+        if len(rects) == 0:
+            return []
 
-            # Find the face bbox whose centre is closest to the mesh nose tip
-            nose = pts[1][:2]  # index 1 = nose tip
-            best_face = None
-            best_dist = float("inf")
-            for face in faces:
-                cx = (face.bbox[0] + face.bbox[2]) / 2
-                cy = (face.bbox[1] + face.bbox[3]) / 2
-                dist = math.hypot(nose[0] - cx, nose[1] - cy)
-                if dist < best_dist:
-                    best_dist = dist
-                    best_face = face
+        faces: List[DetectedFace] = []
+        for (x, y, bw, bh) in rects[:self.max_faces]:
+            pad_x = int(bw * 0.10)
+            pad_y = int(bh * 0.10)
+            x1 = max(x - pad_x, 0)
+            y1 = max(y - pad_y, 0)
+            x2 = min(x + bw + pad_x, w)
+            y2 = min(y + bh + pad_y, h)
 
-            if best_face is None:
+            crop = frame[y1:y2, x1:x2].copy()
+            if crop.size == 0:
                 continue
 
-            best_face.landmarks = pts
-            best_face.pose = self._estimate_pose(pts, frame_h, frame_w)
-            best_face.landmark_visibility = self._estimate_visibility(pts, frame_h, frame_w)
+            faces.append(DetectedFace(
+                bbox=(x1, y1, x2, y2),
+                face_crop=crop,
+                detection_confidence=0.85,
+                pose=FacePose(yaw=0.0, pitch=0.0, roll=0.0),
+                landmark_visibility=1.0,
+            ))
 
-    def _estimate_pose(
-        self, landmarks: np.ndarray, frame_h: int, frame_w: int
-    ) -> FacePose:
+        return faces
+
+    # ------------------------------------------------------------------
+    # Geometric Pose & Visibility from 5 Landmarks
+    # ------------------------------------------------------------------
+
+    def _estimate_pose_from_5_landmarks(self, lm: np.ndarray) -> FacePose:
         """
-        Estimate head pose (yaw, pitch, roll) via Perspective-n-Point (PnP)
-        using 6 canonical face landmarks.
+        Computes head pose angles (roll, yaw, pitch) from 5 landmarks:
+        lm[0] = right eye, lm[1] = left eye, lm[2] = nose,
+        lm[3] = right mouth, lm[4] = left mouth.
         """
-        image_points = np.array([
-            landmarks[idx][:2] for idx in self._POSE_LANDMARK_IDS
-        ], dtype=np.float64)
+        re, le, nose, rm, lm_corner = lm[0], lm[1], lm[2], lm[3], lm[4]
 
-        # Approximate camera intrinsics (assuming no lens distortion)
-        focal_length = frame_w
-        center = (frame_w / 2.0, frame_h / 2.0)
-        camera_matrix = np.array([
-            [focal_length, 0, center[0]],
-            [0, focal_length, center[1]],
-            [0, 0, 1],
-        ], dtype=np.float64)
-        dist_coeffs = np.zeros((4, 1))
+        # 1. Roll: angle of eye line relative to horizontal
+        dx = le[0] - re[0]
+        dy = le[1] - re[1]
+        roll = math.degrees(math.atan2(dy, dx)) if (dx != 0 or dy != 0) else 0.0
 
-        success, rvec, tvec = cv2.solvePnP(
-            self._MODEL_POINTS,
-            image_points,
-            camera_matrix,
-            dist_coeffs,
-            flags=cv2.SOLVEPNP_ITERATIVE,
-        )
+        # 2. Yaw: nose horizontal offset relative to eye center
+        eye_mid = (re + le) / 2.0
+        eye_dist = max(float(np.linalg.norm(le - re)), 1.0)
+        yaw = float((nose[0] - eye_mid[0]) / (eye_dist / 2.0) * 45.0)
+        yaw = max(min(yaw, 90.0), -90.0)
 
-        if not success:
-            return FacePose()
-
-        rmat, _ = cv2.Rodrigues(rvec)
-        # Decompose rotation matrix into Euler angles
-        sy = math.sqrt(rmat[0, 0] ** 2 + rmat[1, 0] ** 2)
-        if sy > 1e-6:
-            pitch = math.degrees(math.atan2(rmat[2, 1], rmat[2, 2]))
-            yaw = math.degrees(math.atan2(-rmat[2, 0], sy))
-            roll = math.degrees(math.atan2(rmat[1, 0], rmat[0, 0]))
-        else:
-            pitch = math.degrees(math.atan2(-rmat[1, 2], rmat[1, 1]))
-            yaw = math.degrees(math.atan2(-rmat[2, 0], sy))
-            roll = 0.0
+        # 3. Pitch: vertical nose position relative to eye-mouth distance
+        mouth_mid = (rm + lm_corner) / 2.0
+        vert_span = max(float(mouth_mid[1] - eye_mid[1]), 1.0)
+        ratio = (nose[1] - eye_mid[1]) / vert_span
+        pitch = float((ratio - 0.55) * 60.0)
+        pitch = max(min(pitch, 90.0), -90.0)
 
         return FacePose(
-            yaw=round(yaw, 2),
-            pitch=round(pitch, 2),
-            roll=round(roll, 2),
+            yaw=round(yaw, 1),
+            pitch=round(pitch, 1),
+            roll=round(roll, 1),
         )
 
-    def _estimate_visibility(
-        self, landmarks: np.ndarray, frame_h: int, frame_w: int
-    ) -> float:
-        """
-        Estimate fraction of key facial landmarks that are within the frame
-        and have reasonable z-depth.  A landmark is considered 'visible' if
-        its (x, y) falls inside the image bounds.
-
-        Returns a float in [0.0, 1.0].
-        """
-        visible = 0
-        total = len(self._VISIBILITY_LANDMARK_IDS)
-
-        for idx in self._VISIBILITY_LANDMARK_IDS:
-            x, y = landmarks[idx][0], landmarks[idx][1]
-            if 0 <= x <= frame_w and 0 <= y <= frame_h:
-                visible += 1
-
-        return round(visible / total, 4) if total > 0 else 1.0
-
-    # ------------------------------------------------------------------
-    # Cleanup
-    # ------------------------------------------------------------------
+    def _estimate_visibility_from_landmarks(self, lm: np.ndarray, h: int, w: int) -> float:
+        """Fraction of 5 facial landmarks inside frame boundaries."""
+        visible = sum(1 for pt in lm if 0 <= pt[0] <= w and 0 <= pt[1] <= h)
+        return round(visible / len(lm), 4)
 
     def close(self):
-        """Release MediaPipe resources."""
-        self._detector.close()
-        if self._mesh is not None:
-            self._mesh.close()
+        """Release any persistent resources."""
+        if self._mp_detector is not None and hasattr(self._mp_detector, "close"):
+            self._mp_detector.close()
 
     def __enter__(self):
         return self

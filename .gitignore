@@ -222,7 +222,8 @@ __marimo__/
 # ==========================================
 # SAFEPASS Project Specific Ignores
 # ==========================================
-data/
+data/*
+!data/.gitkeep
 *.onnx
 *.pt
 *.pth

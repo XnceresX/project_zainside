@@ -1,0 +1,2 @@
+# This file ensures the data/ directory structure is tracked by git.
+# Datasets, weights (*.onnx, *.pt), and video clips (*.mp4) placed here are ignored by .gitignore.

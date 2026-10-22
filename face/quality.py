@@ -5,6 +5,7 @@ Quality estimation algorithms for facial crops (Track P1).
 Evaluates blur (Laplacian variance), crop resolution, and occlusion index.
 """
 
+from typing import Optional
 import cv2
 import numpy as np
 from contract.schema import QualityMetrics

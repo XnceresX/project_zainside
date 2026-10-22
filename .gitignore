@@ -218,3 +218,19 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ==========================================
+# SAFEPASS Project Specific Ignores
+# ==========================================
+data/
+*.onnx
+*.pt
+*.pth
+*.bin
+*.index
+*.mp4
+*.avi
+*.mkv
+.env
+.env.*
+

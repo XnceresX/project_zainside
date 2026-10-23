@@ -11,14 +11,30 @@ Provides:
     - estimate_face_quality: Composite quality scoring with fusion weight advice
 """
 
-from face.detector import FaceDetector, DetectedFace, FacePose
+from face.detector import FaceDetector, DetectedFace, FacePose, align_face_5points, verify_anatomical_face_geometry
 from face.quality import estimate_face_quality
-from face.extractor import FaceFeatureExtractor
+from face.extractor import FaceFeatureExtractor, cosine_similarity
+from face.multiview import (
+    synthesize_3d_perspective_view,
+    synthesize_multiview_gallery,
+    MultiViewGalleryItem,
+    MultiViewEnrollmentEngine,
+)
+from face.video_search import VideoSearchEngine
 
 __all__ = [
     "FaceDetector",
     "DetectedFace",
     "FacePose",
+    "align_face_5points",
+    "verify_anatomical_face_geometry",
     "FaceFeatureExtractor",
+    "cosine_similarity",
     "estimate_face_quality",
+    "synthesize_3d_perspective_view",
+    "synthesize_multiview_gallery",
+    "MultiViewGalleryItem",
+    "MultiViewEnrollmentEngine",
+    "VideoSearchEngine",
 ]
+

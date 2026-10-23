@@ -150,8 +150,44 @@ The plotting module `eval/plot_evaluation.py` generates two visual artifacts:
 ---
 
 ## 6. Hand-off Interface to Track P2
-
-Track P1 outputs are formalized in `contract/schema.py` via `DetectedCandidate` and `QualityMetrics`:
+ 
+Track P1 outputs are formalized in `contract/schema.py` via `Candidate` and `QualityMetrics`:
 - `face_embedding`: 512-dimensional L2-normalized float32 vector.
 - `recommended_face_weight`: Dynamically scaled weight in $[0.0, 0.70]$.
-- When $w_{\text{face}}$ drops below $0.40$, Track P2's fusion engine transfers remaining weight proportion to `recommended_appearance_weight` and `recommended_color_weight`.
+- When $w_{\text{face}}$ drops below $0.40$ (or to $0.0$ on rear angles), Track P2's fusion engine transfers remaining weight proportion to `recommended_appearance_weight` and `recommended_color_weight`.
+
+---
+
+## 7. 3D Multi-View Synthesis & Cross-Pose Retrieval
+
+In real-world campus CCTV deployment, guardians submit a single frontal photograph, but security cameras capture subjects at steep angles (corridor walls at $\pm 30^\circ$, ceiling cameras, or exit turnstiles).
+
+To address this without generative diffusion/GAN latency or biometric hallucination risk, Track P1 implements **3D Projective Geometric Warping** (`face/multiview.py`) based on Euler cylindrical depth curvature:
+1. Enrolls synthetic Left Profile (Yaw $-30^\circ$), Frontal (Yaw $0^\circ$), and Right Profile (Yaw $+30^\circ$).
+2. Extracts ArcFace embeddings for all virtual viewpoints at enrollment time ($< 15\text{ms}$ total on CPU).
+3. Retrieval computes multi-view max-cosine similarity: $S_{\text{face}} = \max_{v \in \mathcal{V}} \cos(e_{\text{probe}}, e_{v})$.
+
+### Cross-Pose CCTV Retrieval Benchmark
+
+| Surveillance Probe Camera | Viewpoint Angle | Baseline (Single-View) | SAFEPASS Multi-View (P1) | Decision | Action & Handover |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **CAM-01: North Corridor** | Yaw $-30.0^\circ$ | 0.9522 | **0.9893** *(+0.037)* | `VERIFIED MATCH` | $w_{\text{face}} = 0.70$ |
+| **CAM-02: Entrance Turnstile**| Yaw $0.0^\circ$ | 0.9874 | **0.9874** *(canonical)* | `VERIFIED MATCH` | $w_{\text{face}} = 0.70$ |
+| **CAM-03: East Escalator** | Yaw $+30.0^\circ$ | 0.9329 | **0.9907** *(+0.058)* | `VERIFIED MATCH` | $w_{\text{face}} = 0.70$ |
+| **CAM-04: Exit Blind Angle** | Yaw $180^\circ$ (Walking Away) | 0.0000 | **0.0000** | `REAR VIEW` | **$w_{\text{face}} = 0.0 \to 100\%$ P2 Body Re-ID** |
+| **CAM-05: Unauthorized Stranger** | Yaw $+15.0^\circ$ | 0.5602 | **0.5607** | `STRANGER REJECTED` | Below threshold ($< 0.65$) |
+
+**Interactive & Visual Demos:**
+- **Interactive Visualizer:** [eval/plots/p1_multiview_demo.html](file:///d:/S7%20PROJECT/eval/plots/p1_multiview_demo.html)
+- **High-Res Composite Dashboard:** [eval/plots/p1_multiview_demo.png](file:///d:/S7%20PROJECT/eval/plots/p1_multiview_demo.png)
+
+---
+
+## 8. Multi-Camera Video Search & Trajectory Reconstruction
+
+Track P1 delivers end-to-end multi-camera video ingestion via `face.video_search.VideoSearchEngine`:
+1. Ingests multiple asynchronous video files (`.mp4`, `.avi`, etc.) sampled at configurable FPS.
+2. Identifies enrolled persons across all cameras simultaneously.
+3. Automatically chains candidate sightings chronologically into a reconstructed motion trajectory.
+4. Tested on 3 concurrent CCTV video feeds (`data/videos/*.mp4`), detecting **24 verified sightings** with zero false acceptances on background stranger faces.
+

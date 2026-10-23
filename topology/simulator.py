@@ -129,6 +129,31 @@ class SimulationResult:
             labels[cid] = not s.is_false_match
         return cands, labels
 
+    def hidden_gaps(self, person_id: str) -> List[Tuple[Visit, List[Visit], Visit]]:
+        """(observed visit, [unobserved visits], next observed visit) for every blind-spot gap."""
+        out = []
+        last_obs: Optional[Visit] = None
+        hidden: List[Visit] = []
+        for v in self.trajectories[person_id]:
+            if v.observed:
+                if last_obs is not None and hidden:
+                    out.append((last_obs, hidden, v))
+                last_obs, hidden = v, []
+            elif last_obs is not None:
+                hidden.append(v)
+        return out
+
+    def people_with_blind_spots(self, graph: VenueTopologyGraph, non_adjacent_only: bool = True) -> List[str]:
+        """Walkers whose ground truth has a hidden visit between two observed visits
+        (optionally only where the observed cameras are not directly connected)."""
+        out = []
+        for pid in self.trajectories:
+            for a, _, b in self.hidden_gaps(pid):
+                if a.camera_id != b.camera_id and (not non_adjacent_only or not graph.are_adjacent(a.camera_id, b.camera_id)):
+                    out.append(pid)
+                    break
+        return out
+
     def ground_truth_transitions(self) -> List[Dict[str, object]]:
         """Every true camera-to-camera move, including ones through blind spots."""
         out = []

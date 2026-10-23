@@ -1,0 +1,17 @@
+{
+  "current_camera_id": "CAM-02",
+  "candidate_next_cameras": [
+    "CAM-01",
+    "CAM-05",
+    "CAM-03"
+  ],
+  "transition_probabilities": [
+    0.46466602129719264,
+    0.40658276863504356,
+    0.1287512100677638
+  ],
+  "estimated_arrival_window_seconds": [
+    40,
+    143
+  ]
+}

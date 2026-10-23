@@ -299,6 +299,27 @@ class VenueTopologyGraph:
         except nx.NetworkXNoPath:
             return None
 
+    def get_most_likely_path(self, cam_a: str, cam_b: str, max_extra_hops: int = 1,
+                             source: str = "auto") -> Optional[List[str]]:
+        """
+        Most probable walkable route for an unseen (blind-spot) traversal: among simple
+        paths with at most (min hops + max_extra_hops) hops, maximise the product of
+        transition probabilities P(Cj|Ci). Ties break toward the shorter distance.
+        """
+        hops = self.hop_distance(cam_a, cam_b)
+        if hops is None:
+            return None
+        if hops <= 1:
+            return [cam_a, cam_b] if hops == 1 else [cam_a]
+        best, best_key = None, None
+        for p in nx.all_simple_paths(self.G, cam_a, cam_b, cutoff=hops + max_extra_hops):
+            logp = sum(math.log(max(self.get_transition_probability(u, v, source), 1e-12))
+                       for u, v in zip(p[:-1], p[1:]))
+            key = (logp, -self.get_path_distance(p))
+            if best_key is None or key > best_key:
+                best, best_key = p, key
+        return best
+
     def hop_distance(self, cam_a: str, cam_b: str) -> Optional[int]:
         path = self.get_shortest_path(cam_a, cam_b, weight=None)
         return None if path is None else len(path) - 1

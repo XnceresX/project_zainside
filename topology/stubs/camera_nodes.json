@@ -1,0 +1,194 @@
+[
+  {
+    "camera_id": "CAM-01",
+    "camera_name": "Main Entrance Gate",
+    "zone_name": "Entrance Plaza",
+    "connected_cameras": [
+      "CAM-02",
+      "CAM-03",
+      "CAM-06",
+      "CAM-08"
+    ],
+    "transit_bounds": {
+      "CAM-02": [
+        17,
+        90
+      ],
+      "CAM-03": [
+        18,
+        93
+      ],
+      "CAM-06": [
+        20,
+        103
+      ],
+      "CAM-08": [
+        15,
+        78
+      ]
+    }
+  },
+  {
+    "camera_id": "CAM-02",
+    "camera_name": "North Corridor",
+    "zone_name": "North Wing",
+    "connected_cameras": [
+      "CAM-01",
+      "CAM-03",
+      "CAM-05"
+    ],
+    "transit_bounds": {
+      "CAM-01": [
+        17,
+        90
+      ],
+      "CAM-03": [
+        17,
+        86
+      ],
+      "CAM-05": [
+        18,
+        93
+      ]
+    }
+  },
+  {
+    "camera_id": "CAM-03",
+    "camera_name": "Central Atrium",
+    "zone_name": "Central Atrium",
+    "connected_cameras": [
+      "CAM-01",
+      "CAM-02",
+      "CAM-04",
+      "CAM-05",
+      "CAM-06"
+    ],
+    "transit_bounds": {
+      "CAM-01": [
+        18,
+        93
+      ],
+      "CAM-02": [
+        17,
+        86
+      ],
+      "CAM-04": [
+        17,
+        90
+      ],
+      "CAM-05": [
+        17,
+        90
+      ],
+      "CAM-06": [
+        20,
+        103
+      ]
+    }
+  },
+  {
+    "camera_id": "CAM-04",
+    "camera_name": "East Escalator Terminal",
+    "zone_name": "East Wing",
+    "connected_cameras": [
+      "CAM-03",
+      "CAM-06",
+      "CAM-07"
+    ],
+    "transit_bounds": {
+      "CAM-03": [
+        17,
+        90
+      ],
+      "CAM-06": [
+        25,
+        128
+      ],
+      "CAM-07": [
+        17,
+        90
+      ]
+    }
+  },
+  {
+    "camera_id": "CAM-05",
+    "camera_name": "Library Hallway",
+    "zone_name": "Library Block",
+    "connected_cameras": [
+      "CAM-02",
+      "CAM-03",
+      "CAM-07"
+    ],
+    "transit_bounds": {
+      "CAM-02": [
+        18,
+        93
+      ],
+      "CAM-03": [
+        17,
+        90
+      ],
+      "CAM-07": [
+        17,
+        90
+      ]
+    }
+  },
+  {
+    "camera_id": "CAM-06",
+    "camera_name": "South Exit Turnstiles",
+    "zone_name": "South Gate",
+    "connected_cameras": [
+      "CAM-01",
+      "CAM-03",
+      "CAM-04"
+    ],
+    "transit_bounds": {
+      "CAM-01": [
+        20,
+        103
+      ],
+      "CAM-03": [
+        20,
+        103
+      ],
+      "CAM-04": [
+        25,
+        128
+      ]
+    }
+  },
+  {
+    "camera_id": "CAM-07",
+    "camera_name": "Food Court Plaza",
+    "zone_name": "Food Court",
+    "connected_cameras": [
+      "CAM-04",
+      "CAM-05"
+    ],
+    "transit_bounds": {
+      "CAM-04": [
+        17,
+        90
+      ],
+      "CAM-05": [
+        17,
+        90
+      ]
+    }
+  },
+  {
+    "camera_id": "CAM-08",
+    "camera_name": "West Parking Stairwell",
+    "zone_name": "West Parking",
+    "connected_cameras": [
+      "CAM-01"
+    ],
+    "transit_bounds": {
+      "CAM-01": [
+        15,
+        78
+      ]
+    }
+  }
+]

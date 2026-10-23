@@ -1,0 +1,548 @@
+{
+  "venue_name": "SAFEPASS Default Campus Venue",
+  "v_max_mps": 4.5,
+  "v_min_mps": 0.9,
+  "nodes": [
+    {
+      "camera_id": "CAM-01",
+      "camera_name": "Main Entrance Gate",
+      "zone_name": "Entrance Plaza",
+      "coordinates": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "camera_id": "CAM-02",
+      "camera_name": "North Corridor",
+      "zone_name": "North Wing",
+      "coordinates": [
+        0.0,
+        70.0
+      ]
+    },
+    {
+      "camera_id": "CAM-03",
+      "camera_name": "Central Atrium",
+      "zone_name": "Central Atrium",
+      "coordinates": [
+        60.0,
+        40.0
+      ]
+    },
+    {
+      "camera_id": "CAM-04",
+      "camera_name": "East Escalator Terminal",
+      "zone_name": "East Wing",
+      "coordinates": [
+        130.0,
+        40.0
+      ]
+    },
+    {
+      "camera_id": "CAM-05",
+      "camera_name": "Library Hallway",
+      "zone_name": "Library Block",
+      "coordinates": [
+        60.0,
+        110.0
+      ]
+    },
+    {
+      "camera_id": "CAM-06",
+      "camera_name": "South Exit Turnstiles",
+      "zone_name": "South Gate",
+      "coordinates": [
+        70.0,
+        -40.0
+      ]
+    },
+    {
+      "camera_id": "CAM-07",
+      "camera_name": "Food Court Plaza",
+      "zone_name": "Food Court",
+      "coordinates": [
+        130.0,
+        110.0
+      ]
+    },
+    {
+      "camera_id": "CAM-08",
+      "camera_name": "West Parking Stairwell",
+      "zone_name": "West Parking",
+      "coordinates": [
+        -60.0,
+        10.0
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "source": "CAM-01",
+      "target": "CAM-02",
+      "distance_meters": 80.5,
+      "min_transit_seconds": 17.889,
+      "max_transit_seconds": 89.444,
+      "prior_probability": 0.25,
+      "learned_probability": 0.29428571428571426,
+      "learned_travel_time": {
+        "dist": "lognormal",
+        "mu": 4.317782209842017,
+        "sigma": 0.3899071022624933,
+        "n": 48,
+        "source": "learned-edge"
+      }
+    },
+    {
+      "source": "CAM-01",
+      "target": "CAM-03",
+      "distance_meters": 82.9,
+      "min_transit_seconds": 18.422,
+      "max_transit_seconds": 92.111,
+      "prior_probability": 0.45,
+      "learned_probability": 0.4257142857142857,
+      "learned_travel_time": {
+        "dist": "lognormal",
+        "mu": 4.40683027939187,
+        "sigma": 0.3437401460235576,
+        "n": 69,
+        "source": "learned-edge"
+      }
+    },
+    {
+      "source": "CAM-01",
+      "target": "CAM-06",
+      "distance_meters": 92.7,
+      "min_transit_seconds": 20.6,
+      "max_transit_seconds": 103.0,
+      "prior_probability": 0.1,
+      "learned_probability": 0.09714285714285714,
+      "learned_travel_time": {
+        "dist": "lognormal",
+        "mu": 4.554689203675786,
+        "sigma": 0.3299076149475494,
+        "n": 15,
+        "source": "learned-edge"
+      }
+    },
+    {
+      "source": "CAM-01",
+      "target": "CAM-08",
+      "distance_meters": 70.0,
+      "min_transit_seconds": 15.556,
+      "max_transit_seconds": 77.778,
+      "prior_probability": 0.2,
+      "learned_probability": 0.18285714285714286,
+      "learned_travel_time": {
+        "dist": "lognormal",
+        "mu": 4.154927529401392,
+        "sigma": 0.26284483740163195,
+        "n": 29,
+        "source": "learned-edge"
+      }
+    },
+    {
+      "source": "CAM-02",
+      "target": "CAM-01",
+      "distance_meters": 80.5,
+      "min_transit_seconds": 17.889,
+      "max_transit_seconds": 89.444,
+      "prior_probability": 0.3,
+      "learned_probability": 0.375,
+      "learned_travel_time": {
+        "dist": "lognormal",
+        "mu": 4.292733596845601,
+        "sigma": 0.3497874439179,
+        "n": 44,
+        "source": "learned-edge"
+      }
+    },
+    {
+      "source": "CAM-02",
+      "target": "CAM-03",
+      "distance_meters": 77.1,
+      "min_transit_seconds": 17.133,
+      "max_transit_seconds": 85.667,
+      "prior_probability": 0.3,
+      "learned_probability": 0.296875,
+      "learned_travel_time": {
+        "dist": "lognormal",
+        "mu": 4.3282404850417695,
+        "sigma": 0.38525123623943863,
+        "n": 34,
+        "source": "learned-edge"
+      }
+    },
+    {
+      "source": "CAM-02",
+      "target": "CAM-05",
+      "distance_meters": 82.9,
+      "min_transit_seconds": 18.422,
+      "max_transit_seconds": 92.111,
+      "prior_probability": 0.4,
+      "learned_probability": 0.328125,
+      "learned_travel_time": {
+        "dist": "lognormal",
+        "mu": 4.3142398568807465,
+        "sigma": 0.2882503897625229,
+        "n": 37,
+        "source": "learned-edge"
+      }
+    },
+    {
+      "source": "CAM-03",
+      "target": "CAM-01",
+      "distance_meters": 82.9,
+      "min_transit_seconds": 18.422,
+      "max_transit_seconds": 92.111,
+      "prior_probability": 0.2,
+      "learned_probability": 0.17391304347826086,
+      "learned_travel_time": {
+        "dist": "lognormal",
+        "mu": 4.3675710023323475,
+        "sigma": 0.3882256193840812,
+        "n": 33,
+        "source": "learned-edge"
+      }
+    },
+    {
+      "source": "CAM-03",
+      "target": "CAM-02",
+      "distance_meters": 77.1,
+      "min_transit_seconds": 17.133,
+      "max_transit_seconds": 85.667,
+      "prior_probability": 0.15,
+      "learned_probability": 0.16666666666666666,
+      "learned_travel_time": {
+        "dist": "lognormal",
+        "mu": 4.368365518563057,
+        "sigma": 0.3934284650483506,
+        "n": 32,
+        "source": "learned-edge"
+      }
+    },
+    {
+      "source": "CAM-03",
+      "target": "CAM-04",
+      "distance_meters": 80.5,
+      "min_transit_seconds": 17.889,
+      "max_transit_seconds": 89.444,
+      "prior_probability": 0.3,
+      "learned_probability": 0.28019323671497587,
+      "learned_travel_time": {
+        "dist": "lognormal",
+        "mu": 4.279844345014979,
+        "sigma": 0.326332152406166,
+        "n": 54,
+        "source": "learned-edge"
+      }
+    },
+    {
+      "source": "CAM-03",
+      "target": "CAM-05",
+      "distance_meters": 80.5,
+      "min_transit_seconds": 17.889,
+      "max_transit_seconds": 89.444,
+      "prior_probability": 0.2,
+      "learned_probability": 0.21739130434782608,
+      "learned_travel_time": {
+        "dist": "lognormal",
+        "mu": 4.299810516376865,
+        "sigma": 0.29488413086313287,
+        "n": 42,
+        "source": "learned-edge"
+      }
+    },
+    {
+      "source": "CAM-03",
+      "target": "CAM-06",
+      "distance_meters": 92.7,
+      "min_transit_seconds": 20.6,
+      "max_transit_seconds": 103.0,
+      "prior_probability": 0.15,
+      "learned_probability": 0.16183574879227053,
+      "learned_travel_time": {
+        "dist": "lognormal",
+        "mu": 4.43664364345767,
+        "sigma": 0.4041380656936249,
+        "n": 31,
+        "source": "learned-edge"
+      }
+    },
+    {
+      "source": "CAM-04",
+      "target": "CAM-03",
+      "distance_meters": 80.5,
+      "min_transit_seconds": 17.889,
+      "max_transit_seconds": 89.444,
+      "prior_probability": 0.4,
+      "learned_probability": 0.3173076923076923,
+      "learned_travel_time": {
+        "dist": "lognormal",
+        "mu": 4.2928189012457025,
+        "sigma": 0.3320786112535806,
+        "n": 28,
+        "source": "learned-edge"
+      }
+    },
+    {
+      "source": "CAM-04",
+      "target": "CAM-06",
+      "distance_meters": 115.0,
+      "min_transit_seconds": 25.556,
+      "max_transit_seconds": 127.778,
+      "prior_probability": 0.2,
+      "learned_probability": 0.3269230769230769,
+      "learned_travel_time": {
+        "dist": "lognormal",
+        "mu": 4.576416711322335,
+        "sigma": 0.21475374677632905,
+        "n": 31,
+        "source": "learned-edge"
+      }
+    },
+    {
+      "source": "CAM-04",
+      "target": "CAM-07",
+      "distance_meters": 80.5,
+      "min_transit_seconds": 17.889,
+      "max_transit_seconds": 89.444,
+      "prior_probability": 0.4,
+      "learned_probability": 0.3557692307692308,
+      "learned_travel_time": {
+        "dist": "lognormal",
+        "mu": 4.224637473392505,
+        "sigma": 0.2276326968766635,
+        "n": 32,
+        "source": "learned-edge"
+      }
+    },
+    {
+      "source": "CAM-05",
+      "target": "CAM-02",
+      "distance_meters": 82.9,
+      "min_transit_seconds": 18.422,
+      "max_transit_seconds": 92.111,
+      "prior_probability": 0.35000000000000003,
+      "learned_probability": 0.348,
+      "learned_travel_time": {
+        "dist": "lognormal",
+        "mu": 4.375577829316456,
+        "sigma": 0.38922086020305524,
+        "n": 39,
+        "source": "learned-edge"
+      }
+    },
+    {
+      "source": "CAM-05",
+      "target": "CAM-03",
+      "distance_meters": 80.5,
+      "min_transit_seconds": 17.889,
+      "max_transit_seconds": 89.444,
+      "prior_probability": 0.35000000000000003,
+      "learned_probability": 0.34,
+      "learned_travel_time": {
+        "dist": "lognormal",
+        "mu": 4.4091194833297935,
+        "sigma": 0.38256024699566654,
+        "n": 38,
+        "source": "learned-edge"
+      }
+    },
+    {
+      "source": "CAM-05",
+      "target": "CAM-07",
+      "distance_meters": 80.5,
+      "min_transit_seconds": 17.889,
+      "max_transit_seconds": 89.444,
+      "prior_probability": 0.30000000000000004,
+      "learned_probability": 0.312,
+      "learned_travel_time": {
+        "dist": "lognormal",
+        "mu": 4.311567924298491,
+        "sigma": 0.26994570680697544,
+        "n": 35,
+        "source": "learned-edge"
+      }
+    },
+    {
+      "source": "CAM-06",
+      "target": "CAM-01",
+      "distance_meters": 92.7,
+      "min_transit_seconds": 20.6,
+      "max_transit_seconds": 103.0,
+      "prior_probability": 0.4,
+      "learned_probability": 0.43037974683544306,
+      "learned_travel_time": {
+        "dist": "lognormal",
+        "mu": 4.46151081243784,
+        "sigma": 0.24034955633503333,
+        "n": 29,
+        "source": "learned-edge"
+      }
+    },
+    {
+      "source": "CAM-06",
+      "target": "CAM-03",
+      "distance_meters": 92.7,
+      "min_transit_seconds": 20.6,
+      "max_transit_seconds": 103.0,
+      "prior_probability": 0.4,
+      "learned_probability": 0.35443037974683544,
+      "learned_travel_time": {
+        "dist": "lognormal",
+        "mu": 4.477739590412521,
+        "sigma": 0.32680494299273644,
+        "n": 23,
+        "source": "learned-edge"
+      }
+    },
+    {
+      "source": "CAM-06",
+      "target": "CAM-04",
+      "distance_meters": 115.0,
+      "min_transit_seconds": 25.556,
+      "max_transit_seconds": 127.778,
+      "prior_probability": 0.2,
+      "learned_probability": 0.21518987341772153,
+      "learned_travel_time": {
+        "dist": "lognormal",
+        "mu": 4.564401621353203,
+        "sigma": 0.3026292562297807,
+        "n": 14,
+        "source": "learned-edge"
+      }
+    },
+    {
+      "source": "CAM-07",
+      "target": "CAM-04",
+      "distance_meters": 80.5,
+      "min_transit_seconds": 17.889,
+      "max_transit_seconds": 89.444,
+      "prior_probability": 0.55,
+      "learned_probability": 0.5140845070422535,
+      "learned_travel_time": {
+        "dist": "lognormal",
+        "mu": 4.258822170596683,
+        "sigma": 0.26805890397074783,
+        "n": 30,
+        "source": "learned-edge"
+      }
+    },
+    {
+      "source": "CAM-07",
+      "target": "CAM-05",
+      "distance_meters": 80.5,
+      "min_transit_seconds": 17.889,
+      "max_transit_seconds": 89.444,
+      "prior_probability": 0.45,
+      "learned_probability": 0.4859154929577465,
+      "learned_travel_time": {
+        "dist": "lognormal",
+        "mu": 4.287008411305423,
+        "sigma": 0.3349911515054432,
+        "n": 29,
+        "source": "learned-edge"
+      }
+    },
+    {
+      "source": "CAM-08",
+      "target": "CAM-01",
+      "distance_meters": 70.0,
+      "min_transit_seconds": 15.556,
+      "max_transit_seconds": 77.778,
+      "prior_probability": 1.0,
+      "learned_probability": 1.0,
+      "learned_travel_time": {
+        "dist": "lognormal",
+        "mu": 4.153217757283625,
+        "sigma": 0.27797683259564904,
+        "n": 45,
+        "source": "learned-edge"
+      }
+    }
+  ],
+  "learned_pairs": {
+    "CAM-01->CAM-04": {
+      "dist": "lognormal",
+      "mu": 5.036755598741881,
+      "sigma": 0.4123620463087725,
+      "n": 3,
+      "source": "learned-pair"
+    },
+    "CAM-01->CAM-05": {
+      "dist": "lognormal",
+      "mu": 4.9890624574907845,
+      "sigma": 0.3192598764098872,
+      "n": 3,
+      "source": "learned-pair"
+    },
+    "CAM-03->CAM-07": {
+      "dist": "lognormal",
+      "mu": 5.052987854391501,
+      "sigma": 0.30608222072047114,
+      "n": 4,
+      "source": "learned-pair"
+    },
+    "CAM-04->CAM-01": {
+      "dist": "lognormal",
+      "mu": 4.977160124635714,
+      "sigma": 0.391535150342714,
+      "n": 3,
+      "source": "learned-pair"
+    },
+    "CAM-04->CAM-05": {
+      "dist": "lognormal",
+      "mu": 4.914129926809376,
+      "sigma": 0.27883713475523064,
+      "n": 5,
+      "source": "learned-pair"
+    },
+    "CAM-07->CAM-03": {
+      "dist": "lognormal",
+      "mu": 4.927300680955595,
+      "sigma": 0.23061234840386088,
+      "n": 6,
+      "source": "learned-pair"
+    },
+    "CAM-08->CAM-02": {
+      "dist": "lognormal",
+      "mu": 4.939444219320763,
+      "sigma": 0.26631369674015265,
+      "n": 4,
+      "source": "learned-pair"
+    },
+    "CAM-08->CAM-03": {
+      "dist": "lognormal",
+      "mu": 4.892958692867808,
+      "sigma": 0.22631102178015192,
+      "n": 6,
+      "source": "learned-pair"
+    }
+  },
+  "learned_model_meta": {
+    "model": "safepass-p3-transition-model",
+    "version": 1,
+    "venue_name": "SAFEPASS Default Campus Venue",
+    "params": {
+      "alpha": 1.0,
+      "prior_strength": 10.0,
+      "time_prior_strength": 3.0,
+      "min_time_samples": 3,
+      "same_visit_gap_seconds": 20.0,
+      "reject_teleports": true,
+      "multihop_weight": 0.0,
+      "track_cleaning": "chain"
+    },
+    "stats": {
+      "sightings": 8123,
+      "visits": 1058,
+      "direct_transitions": 841,
+      "multihop_transitions": 47,
+      "rejected_teleports": 0,
+      "rejected_unreachable": 0,
+      "ambiguous_returns": 20,
+      "discarded_sightings": 751
+    }
+  }
+}

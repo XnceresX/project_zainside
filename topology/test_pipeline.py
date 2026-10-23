@@ -30,6 +30,10 @@ def ts(sec: float) -> str:
     return (BASE + timedelta(seconds=sec)).isoformat()
 
 
+def to_s(iso: str) -> float:
+    return datetime.fromisoformat(iso).timestamp()
+
+
 def cand(cid: str, cam: str, sec: float, score: float = 0.8, case: str = "CASE-T") -> Candidate:
     return Candidate(case_id=case, candidate_id=cid, camera_id=cam, camera_name=cam,
                      timestamp=ts(sec), fused_score=score)
@@ -170,6 +174,35 @@ def test_learner_cold_start_and_learning():
     print(f"  [PASS] cold start = priors (alpha=0); KL manual {kl_manual:.3f} -> learned {kl_learned:.3f}")
 
 
+# Stated tolerance for convergence to the simulator's true edge probabilities, with
+# 1500 walkers and 10% injected look-alikes. The worst-observed node here (CAM-07, ~290
+# transitions at p ~ 0.5) has binomial s.e. ~0.03, so 0.06 is about 2 s.e. on the worst edge.
+LEARNER_MAX_ABS_TOL = 0.06
+LEARNER_MEAN_ABS_TOL = 0.025
+
+
+def test_learner_converges_to_true_probabilities():
+    from topology.simulator import SimulatorConfig
+    g = VenueTopologyGraph.default_venue()
+    truth, true_probs = perturbed_truth_venue(g, seed=3)
+    cfg = SimulatorConfig(backtrack_factor=1.0)  # pure first-order routing: true_probs ARE the edge probabilities
+    big = TrajectorySimulator(truth, cfg, transition_probs=true_probs, seed=21).simulate(1500, p_false_match=0.1)
+
+    def errors(n_people):
+        keep = set(list(big.trajectories)[:n_people])
+        L = TransitionLearner(g).fit(s for s in big.sighting_log() if s.person_id in keep)
+        return [abs(L.transition_probabilities(c)[v] - p) for c in true_probs for v, p in true_probs[c].items()]
+
+    manual = [abs(g.get_transition_probability(c, v, "prior") - p) for c in true_probs for v, p in true_probs[c].items()]
+    e100, e1500 = errors(100), errors(1500)
+    mean = lambda xs: sum(xs) / len(xs)
+    assert max(e1500) <= LEARNER_MAX_ABS_TOL, max(e1500)
+    assert mean(e1500) <= LEARNER_MEAN_ABS_TOL, mean(e1500)
+    assert mean(e1500) < mean(e100) < mean(manual), "error must shrink as data arrives"
+    print(f"  [PASS] |P_learned - P_true|: mean {mean(manual):.3f} (manual) -> {mean(e100):.3f} (100 walkers) "
+          f"-> {mean(e1500):.3f} (1500), max {max(e1500):.3f} <= tol {LEARNER_MAX_ABS_TOL}")
+
+
 # -------------------------------------------------------------------------- pruner
 def test_pruner_rules():
     g = VenueTopologyGraph.default_venue()
@@ -248,6 +281,23 @@ def test_forecaster():
     assert abs(sum(mom.values()) - 1.0) < 1e-9
     assert not f.forecast_detailed("CAM-03", ts(70), hist[1:]).momentum_applied
     assert f.forecast("CAM-08").candidate_next_cameras == ["CAM-01"]
+
+    # windows valid for every camera, with manual and with learned models
+    learned = VenueTopologyGraph.default_venue()
+    learned.load_learned_model(TransitionLearner(learned).fit(
+        TrajectorySimulator(learned, seed=12).simulate(150).sighting_log()).export())
+    for graph in (g, learned):
+        fc = BlindSpotForecaster(graph)
+        for c in graph.cameras:
+            d = fc.forecast_detailed(c, ts(0), hist)
+            lo, hi = d.prediction.estimated_arrival_window_seconds
+            assert isinstance(lo, int) and isinstance(hi, int) and 0 <= lo < hi
+            assert abs(sum(d.prediction.transition_probabilities) - 1.0) < 1e-9
+            assert len(d.prediction.candidate_next_cameras) == len(d.prediction.transition_probabilities)
+            for cam, (wlo, whi) in d.per_camera_windows.items():
+                assert graph.are_adjacent(c, cam)
+                assert wlo >= graph.get_transit_window(c, cam)[0] - 1e-9 and wlo <= whi
+                assert lo <= wlo + 1 and hi >= whi - 1
     print(f"  [PASS] forecast CAM-03 -> {pred.candidate_next_cameras[0]} "
           f"(p={pred.transition_probabilities[0]:.2f}), window {pred.estimated_arrival_window_seconds}, "
           f"momentum P(back to CAM-01) {no_mom['CAM-01']:.2f} -> {mom['CAM-01']:.2f}")
@@ -288,6 +338,70 @@ def test_trajectory_reconstruction():
     print("  [PASS] invalid dropped, look-alike resolved, blind spots flagged, DP beats greedy on early fake")
 
 
+def test_ground_truth_blind_spot_flagged():
+    """A simulated ground-truth trajectory with an unseen camera is rebuilt and the gap flagged."""
+    g = VenueTopologyGraph.default_venue()
+    res = TrajectorySimulator(g, seed=42).simulate(40, p_false_match=0.1)
+    people = res.people_with_blind_spots(g)
+    assert people, "simulation should contain non-adjacent blind-spot traversals"
+    base = res.base_time.timestamp()
+    rec = TrajectoryReconstructor(g)
+    checked = 0
+    for pid in people[:5]:
+        cands, labels = res.candidates_for(pid, graph=g)
+        out = rec.reconstruct(cands)
+        assert all(labels[c.candidate_id] for c in out.selected), "look-alike leaked into trajectory"
+        for a, hidden, b in res.hidden_gaps(pid):
+            if a.camera_id == b.camera_id or g.are_adjacent(a.camera_id, b.camera_id):
+                continue
+            t_hidden = base + hidden[0].arrival_time
+            flags = [f for f in out.blind_spots
+                     if to_s(f.start_timestamp) <= t_hidden <= to_s(f.end_timestamp)]
+            assert flags, f"{pid}: hidden visit to {hidden[0].camera_id} not flagged"
+            f = flags[0]
+            assert (f.from_camera, f.to_camera, f.reason) == (a.camera_id, b.camera_id, "non_adjacent")
+            route = [f.from_camera] + f.inferred_path + [f.to_camera]
+            assert all(g.are_adjacent(u, v) for u, v in zip(route[:-1], route[1:]))
+            checked += 1
+    assert checked > 0
+    print(f"  [PASS] {checked} ground-truth blind-spot gaps reconstructed and flagged (non_adjacent)")
+
+
+def test_most_likely_path():
+    g = VenueTopologyGraph.default_venue()
+    # equal-length routes CAM-01->CAM-05: via CAM-02 (0.25*0.40) beats via CAM-03 (0.45*0.20)
+    assert g.get_most_likely_path("CAM-01", "CAM-05") == ["CAM-01", "CAM-02", "CAM-05"]
+    g.set_priors("CAM-03", {"CAM-01": 0.1, "CAM-02": 0.1, "CAM-04": 0.1, "CAM-05": 0.6, "CAM-06": 0.1})
+    assert g.get_most_likely_path("CAM-01", "CAM-05") == ["CAM-01", "CAM-03", "CAM-05"]
+    assert g.get_most_likely_path("CAM-01", "CAM-03") == ["CAM-01", "CAM-03"]
+    print("  [PASS] blind-spot route inference follows transition probabilities")
+
+
+def test_visualizer_camera_graph():
+    import os
+    from topology.visualizer import demo_camera_graph
+    path = demo_camera_graph(os.path.join("eval", "plots", "p3_camera_graph.png"))
+    assert os.path.exists(path) and os.path.getsize(path) > 10_000
+    print(f"  [PASS] saved {path}")
+
+
+def test_stubs_match_schema():
+    from contract.schema import SearchCaseResult
+    from topology.stubs import build_stubs
+    s = build_stubs()
+    nodes = [CameraNode(**n) for n in s["camera_nodes"]]
+    assert len(nodes) == 8 and all(n.transit_bounds for n in nodes)
+    cands = [Candidate(**c) for c in s["candidates_pruned"]]
+    assert any(not c.is_spatially_valid for c in cands) and all(c.topology_score is not None for c in cands)
+    pts = [TrajectoryPoint(**p) for p in s["trajectory"]]
+    pred = SpatialPrediction(**s["spatial_prediction"])
+    case = SearchCaseResult(**s["search_case_result"])
+    assert case.predicted_next_zone == pred and case.reconstructed_trajectory == pts
+    assert abs(sum(pred.transition_probabilities) - 1.0) < 1e-9
+    VenueTopologyGraph.from_dict(s["venue_graph"])
+    print(f"  [PASS] stubs valid: {len(nodes)} CameraNodes, {len(cands)} Candidates, {len(pts)} TrajectoryPoints")
+
+
 # ---------------------------------------------------------------------- end to end
 def test_end_to_end():
     g = VenueTopologyGraph.default_venue()
@@ -317,12 +431,17 @@ TESTS = [
     ("Graph paths & windows", test_graph_paths_and_windows),
     ("Graph serialisation & contract", test_graph_serialisation_and_contract),
     ("Simulator", test_simulator_reproducible_and_physical),
-    ("Learner", test_learner_cold_start_and_learning),
+    ("Learner: cold start, robustness, export", test_learner_cold_start_and_learning),
+    ("Learner: convergence to true probabilities", test_learner_converges_to_true_probabilities),
     ("Pruner rules", test_pruner_rules),
     ("Pruner learned scores", test_pruner_learned_scores),
     ("Forecaster", test_forecaster),
     ("Trajectory reconstruction", test_trajectory_reconstruction),
+    ("Ground-truth blind spot", test_ground_truth_blind_spot_flagged),
+    ("Most-likely blind-spot route", test_most_likely_path),
     ("End-to-end", test_end_to_end),
+    ("Visualizer: p3_camera_graph.png", test_visualizer_camera_graph),
+    ("Stub JSON vs schema", test_stubs_match_schema),
 ]
 
 

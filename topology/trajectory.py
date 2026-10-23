@@ -40,7 +40,7 @@ class BlindSpotInterval:
     gap_seconds: float
     reason: str                       # "non_adjacent" | "gap_exceeds_transit" | "unseen_return"
     expected_window_seconds: Optional[Tuple[float, float]] = None
-    inferred_path: List[str] = field(default_factory=list)
+    inferred_path: List[str] = field(default_factory=list)  # most likely unseen intermediate cameras
 
 
 @dataclass
@@ -213,7 +213,7 @@ class TrajectoryReconstructor:
                 window = self.graph.get_expected_transit_window(a.camera_id, b.camera_id, self.blind_spot_coverage)
             else:
                 window = self.graph.get_transit_window(a.camera_id, b.camera_id)
-            path = self.graph.get_shortest_path(a.camera_id, b.camera_id) or []
+            path = self.graph.get_most_likely_path(a.camera_id, b.camera_id) or []
             if not self.graph.are_adjacent(a.camera_id, b.camera_id):
                 out.append(BlindSpotInterval(a.camera_id, b.camera_id, a.timestamp, b.timestamp,
                                              gap, "non_adjacent", window, path[1:-1]))

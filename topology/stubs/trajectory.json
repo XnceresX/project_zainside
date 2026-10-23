@@ -1,0 +1,170 @@
+[
+  {
+    "camera_id": "CAM-01",
+    "camera_name": "Main Entrance Gate",
+    "timestamp": "2026-10-23T10:28:30.243766",
+    "confidence": 0.8073606844263117,
+    "snapshot_url": null
+  },
+  {
+    "camera_id": "CAM-01",
+    "camera_name": "Main Entrance Gate",
+    "timestamp": "2026-10-23T10:28:31.243766",
+    "confidence": 0.8606793858860597,
+    "snapshot_url": null
+  },
+  {
+    "camera_id": "CAM-01",
+    "camera_name": "Main Entrance Gate",
+    "timestamp": "2026-10-23T10:28:32.243766",
+    "confidence": 0.8386517690972477,
+    "snapshot_url": null
+  },
+  {
+    "camera_id": "CAM-01",
+    "camera_name": "Main Entrance Gate",
+    "timestamp": "2026-10-23T10:28:34.243766",
+    "confidence": 0.8184256435113582,
+    "snapshot_url": null
+  },
+  {
+    "camera_id": "CAM-01",
+    "camera_name": "Main Entrance Gate",
+    "timestamp": "2026-10-23T10:28:35.243766",
+    "confidence": 0.6409693886596233,
+    "snapshot_url": null
+  },
+  {
+    "camera_id": "CAM-01",
+    "camera_name": "Main Entrance Gate",
+    "timestamp": "2026-10-23T10:28:37.243766",
+    "confidence": 0.6855738516902896,
+    "snapshot_url": null
+  },
+  {
+    "camera_id": "CAM-03",
+    "camera_name": "Central Atrium",
+    "timestamp": "2026-10-23T10:30:16.303530",
+    "confidence": 0.5727663835104053,
+    "snapshot_url": null
+  },
+  {
+    "camera_id": "CAM-03",
+    "camera_name": "Central Atrium",
+    "timestamp": "2026-10-23T10:30:17.303530",
+    "confidence": 0.8306500820553743,
+    "snapshot_url": null
+  },
+  {
+    "camera_id": "CAM-07",
+    "camera_name": "Food Court Plaza",
+    "timestamp": "2026-10-23T10:35:09.076725",
+    "confidence": 0.039078094469467396,
+    "snapshot_url": null
+  },
+  {
+    "camera_id": "CAM-07",
+    "camera_name": "Food Court Plaza",
+    "timestamp": "2026-10-23T10:35:10.076725",
+    "confidence": 0.6361369657445685,
+    "snapshot_url": null
+  },
+  {
+    "camera_id": "CAM-07",
+    "camera_name": "Food Court Plaza",
+    "timestamp": "2026-10-23T10:35:11.076725",
+    "confidence": 0.7363627281181686,
+    "snapshot_url": null
+  },
+  {
+    "camera_id": "CAM-06",
+    "camera_name": "South Exit Turnstiles",
+    "timestamp": "2026-10-23T10:38:10.856763",
+    "confidence": 0.866124435660108,
+    "snapshot_url": null
+  },
+  {
+    "camera_id": "CAM-06",
+    "camera_name": "South Exit Turnstiles",
+    "timestamp": "2026-10-23T10:38:12.856763",
+    "confidence": 0.9307383619024883,
+    "snapshot_url": null
+  },
+  {
+    "camera_id": "CAM-06",
+    "camera_name": "South Exit Turnstiles",
+    "timestamp": "2026-10-23T10:38:13.856763",
+    "confidence": 0.7793066964025624,
+    "snapshot_url": null
+  },
+  {
+    "camera_id": "CAM-06",
+    "camera_name": "South Exit Turnstiles",
+    "timestamp": "2026-10-23T10:38:14.856763",
+    "confidence": 0.8388747878866207,
+    "snapshot_url": null
+  },
+  {
+    "camera_id": "CAM-06",
+    "camera_name": "South Exit Turnstiles",
+    "timestamp": "2026-10-23T10:38:16.856763",
+    "confidence": 0.7979992516407989,
+    "snapshot_url": null
+  },
+  {
+    "camera_id": "CAM-03",
+    "camera_name": "Central Atrium",
+    "timestamp": "2026-10-23T10:39:30.527734",
+    "confidence": 0.6211399727896023,
+    "snapshot_url": null
+  },
+  {
+    "camera_id": "CAM-03",
+    "camera_name": "Central Atrium",
+    "timestamp": "2026-10-23T10:39:31.527734",
+    "confidence": 0.6772230608160968,
+    "snapshot_url": null
+  },
+  {
+    "camera_id": "CAM-03",
+    "camera_name": "Central Atrium",
+    "timestamp": "2026-10-23T10:39:32.527734",
+    "confidence": 0.697676090724689,
+    "snapshot_url": null
+  },
+  {
+    "camera_id": "CAM-03",
+    "camera_name": "Central Atrium",
+    "timestamp": "2026-10-23T10:39:33.527734",
+    "confidence": 0.8702550234702205,
+    "snapshot_url": null
+  },
+  {
+    "camera_id": "CAM-02",
+    "camera_name": "North Corridor",
+    "timestamp": "2026-10-23T10:40:53.837517",
+    "confidence": 0.7954186052496214,
+    "snapshot_url": null
+  },
+  {
+    "camera_id": "CAM-02",
+    "camera_name": "North Corridor",
+    "timestamp": "2026-10-23T10:40:54.837517",
+    "confidence": 0.8300832849231755,
+    "snapshot_url": null
+  },
+  {
+    "camera_id": "CAM-02",
+    "camera_name": "North Corridor",
+    "timestamp": "2026-10-23T10:40:55.837517",
+    "confidence": 0.7238721373695659,
+    "snapshot_url": null
+  },
+  {
+    "camera_id": "CAM-02",
+    "camera_name": "North Corridor",
+    "timestamp": "2026-10-23T10:40:56.837517",
+    "confidence": 0.729222073839175,
+    "snapshot_url": null
+  }
+]

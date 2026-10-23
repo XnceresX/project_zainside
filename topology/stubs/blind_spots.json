@@ -1,0 +1,32 @@
+[
+  {
+    "from_camera": "CAM-03",
+    "to_camera": "CAM-07",
+    "start_timestamp": "2026-10-23T10:30:17.303530",
+    "end_timestamp": "2026-10-23T10:35:09.076725",
+    "gap_seconds": 291.77319502830505,
+    "reason": "non_adjacent",
+    "expected_window_seconds": [
+      76.7792277018184,
+      318.9523051104709
+    ],
+    "inferred_path": [
+      "CAM-04"
+    ]
+  },
+  {
+    "from_camera": "CAM-07",
+    "to_camera": "CAM-06",
+    "start_timestamp": "2026-10-23T10:35:11.076725",
+    "end_timestamp": "2026-10-23T10:38:10.856763",
+    "gap_seconds": 179.78003787994385,
+    "reason": "non_adjacent",
+    "expected_window_seconds": [
+      114.86868825415311,
+      252.45018020822957
+    ],
+    "inferred_path": [
+      "CAM-04"
+    ]
+  }
+]

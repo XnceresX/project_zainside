@@ -16,7 +16,8 @@ Input: candidate sightings for one case (from P1/P2 + SpatiotemporalPruner).
           cannot derail the rest of the trajectory, unlike greedy.
     4. Emit ordered contract TrajectoryPoints and flag blind-spot intervals:
        consecutive visits on non-adjacent cameras, or gaps longer than the expected
-       (physical, path-based) maximum transit time.
+       transit (upper end of the learned travel-time interval when a model is loaded,
+       else the physical path-based dt_max).
 """
 
 from __future__ import annotations
@@ -110,7 +111,13 @@ class TrajectoryReconstructor:
         rescore: bool = True,
         max_lookback: int = 60,
         same_camera_gap_seconds: float = 20.0,
+        blind_spot_coverage: float = 0.98,
     ):
+        """
+        blind_spot_coverage: an adjacent-camera gap is flagged when it exceeds the upper
+            end of the expected transit window: the central `blind_spot_coverage`
+            interval of the learned travel time if loaded, else physical dt_max.
+        """
         if method not in ("dp", "greedy"):
             raise ValueError("method must be 'dp' or 'greedy'")
         self.graph = graph
@@ -120,6 +127,7 @@ class TrajectoryReconstructor:
         self.rescore = rescore
         self.max_lookback = int(max_lookback)
         self.same_camera_gap = float(same_camera_gap_seconds)
+        self.blind_spot_coverage = float(blind_spot_coverage)
 
     # -------------------------------------------------------------- select
     def _greedy(self, cands: List[Candidate], times: List[float]) -> List[int]:
@@ -201,7 +209,10 @@ class TrajectoryReconstructor:
                     out.append(BlindSpotInterval(a.camera_id, b.camera_id, a.timestamp, b.timestamp,
                                                  gap, "unseen_return"))
                 continue
-            window = self.graph.get_transit_window(a.camera_id, b.camera_id)
+            if self.pruner.use_learned:
+                window = self.graph.get_expected_transit_window(a.camera_id, b.camera_id, self.blind_spot_coverage)
+            else:
+                window = self.graph.get_transit_window(a.camera_id, b.camera_id)
             path = self.graph.get_shortest_path(a.camera_id, b.camera_id) or []
             if not self.graph.are_adjacent(a.camera_id, b.camera_id):
                 out.append(BlindSpotInterval(a.camera_id, b.camera_id, a.timestamp, b.timestamp,

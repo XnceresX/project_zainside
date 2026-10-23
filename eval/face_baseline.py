@@ -490,7 +490,7 @@ def main():
     output_data = {
         "track": "P1 - Face Pipeline & Quality Estimation",
         "model": "ArcFace ONNX (512-d)",
-        "detector": "OpenCV YuNet ONNX" if not args.no_crop else "Pre-cropped",
+        "detector": f"{evaluator.detector.backend.upper()} ONNX (Anti-Ghost + 5pt Align)" if not args.no_crop else "Pre-cropped",
         "dataset": args.dataset_dir if args.dataset_dir else "Synthetic",
         "clean_baseline": clean_results,
         "degradation_study": degradation_results,

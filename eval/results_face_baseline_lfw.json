@@ -6,107 +6,107 @@
   "clean_baseline": {
     "num_gallery": 50,
     "num_probes": 300,
-    "rank_1": 0.8933,
-    "rank_5": 0.94,
-    "rank_10": 0.9567,
-    "mAP": 0.9168,
-    "verification_accuracy": 0.9929,
-    "roc_auc": 0.9681,
-    "eer": 0.0674,
-    "optimal_threshold": 0.755,
-    "mean_genuine_sim": 0.7797,
-    "mean_impostor_sim": 0.5758
+    "rank_1": 0.9333,
+    "rank_5": 0.96,
+    "rank_10": 0.9667,
+    "mAP": 0.947,
+    "verification_accuracy": 0.9963,
+    "roc_auc": 0.9816,
+    "eer": 0.05,
+    "optimal_threshold": 0.71,
+    "mean_genuine_sim": 0.7858,
+    "mean_impostor_sim": 0.5262
   },
   "degradation_study": [
     {
       "condition": "Clean (Original)",
-      "avg_blur_score": 0.6434,
-      "avg_occlusion_score": 0.0104,
-      "rec_face_weight": 0.67,
-      "rank_1": 0.85,
-      "rank_5": 0.9,
-      "mAP": 0.8756,
-      "mean_genuine_sim": 0.7686
+      "avg_blur_score": 0.7337,
+      "avg_occlusion_score": 0.0152,
+      "rec_face_weight": 0.68,
+      "rank_1": 0.8833,
+      "rank_5": 0.9333,
+      "mAP": 0.9084,
+      "mean_genuine_sim": 0.7729
     },
     {
       "condition": "Blur (sigma=2.0)",
-      "avg_blur_score": 0.0445,
-      "avg_occlusion_score": 0.0073,
+      "avg_blur_score": 0.0483,
+      "avg_occlusion_score": 0.0113,
       "rec_face_weight": 0.4,
-      "rank_1": 0.85,
-      "rank_5": 0.9,
-      "mAP": 0.8756,
-      "mean_genuine_sim": 0.7291
+      "rank_1": 0.8167,
+      "rank_5": 0.9167,
+      "mAP": 0.8634,
+      "mean_genuine_sim": 0.7084
     },
     {
       "condition": "Blur (sigma=5.0)",
-      "avg_blur_score": 0.0124,
-      "avg_occlusion_score": 0.0034,
+      "avg_blur_score": 0.0125,
+      "avg_occlusion_score": 0.0068,
       "rec_face_weight": 0.4,
-      "rank_1": 0.0167,
-      "rank_5": 0.2,
-      "mAP": 0.1362,
-      "mean_genuine_sim": 0.5347
+      "rank_1": 0.0,
+      "rank_5": 0.1667,
+      "mAP": 0.1038,
+      "mean_genuine_sim": 0.5108
     },
     {
       "condition": "Blur (sigma=10.0)",
-      "avg_blur_score": 0.0096,
-      "avg_occlusion_score": 0.0008,
+      "avg_blur_score": 0.0095,
+      "avg_occlusion_score": 0.0025,
       "rec_face_weight": 0.4,
-      "rank_1": 0.0167,
-      "rank_5": 0.1333,
-      "mAP": 0.0972,
-      "mean_genuine_sim": 0.5181
+      "rank_1": 0.0333,
+      "rank_5": 0.0833,
+      "mAP": 0.098,
+      "mean_genuine_sim": 0.5048
     },
     {
       "condition": "Downscale (h=40px)",
-      "avg_blur_score": 0.0974,
-      "avg_occlusion_score": 0.0076,
+      "avg_blur_score": 0.1629,
+      "avg_occlusion_score": 0.0128,
       "rec_face_weight": 0.4,
-      "rank_1": 0.8167,
-      "rank_5": 0.9,
-      "mAP": 0.8564,
-      "mean_genuine_sim": 0.7307
+      "rank_1": 0.8333,
+      "rank_5": 0.9333,
+      "mAP": 0.8787,
+      "mean_genuine_sim": 0.7399
     },
     {
       "condition": "Downscale (h=20px)",
-      "avg_blur_score": 0.0317,
-      "avg_occlusion_score": 0.0052,
+      "avg_blur_score": 0.0515,
+      "avg_occlusion_score": 0.0101,
       "rec_face_weight": 0.4,
-      "rank_1": 0.05,
-      "rank_5": 0.4333,
-      "mAP": 0.236,
-      "mean_genuine_sim": 0.5733
+      "rank_1": 0.5333,
+      "rank_5": 0.7167,
+      "mAP": 0.6171,
+      "mean_genuine_sim": 0.6017
     },
     {
       "condition": "Occlusion (20% lower)",
-      "avg_blur_score": 0.9973,
-      "avg_occlusion_score": 0.2058,
+      "avg_blur_score": 1.0,
+      "avg_occlusion_score": 0.2142,
       "rec_face_weight": 0.7,
       "rank_1": 0.6667,
-      "rank_5": 0.8667,
-      "mAP": 0.7564,
-      "mean_genuine_sim": 0.6984
+      "rank_5": 0.7833,
+      "mAP": 0.7343,
+      "mean_genuine_sim": 0.6471
     },
     {
       "condition": "Occlusion (40% lower)",
       "avg_blur_score": 1.0,
-      "avg_occlusion_score": 0.4038,
+      "avg_occlusion_score": 0.4045,
       "rec_face_weight": 0.7,
       "rank_1": 0.05,
-      "rank_5": 0.6333,
-      "mAP": 0.3158,
-      "mean_genuine_sim": 0.5805
+      "rank_5": 0.3167,
+      "mAP": 0.1802,
+      "mean_genuine_sim": 0.5277
     },
     {
       "condition": "Occlusion (50% random)",
-      "avg_blur_score": 0.9983,
-      "avg_occlusion_score": 0.5034,
+      "avg_blur_score": 1.0,
+      "avg_occlusion_score": 0.5092,
       "rec_face_weight": 0.7,
       "rank_1": 0.0167,
-      "rank_5": 0.2333,
-      "mAP": 0.1399,
-      "mean_genuine_sim": 0.5319
+      "rank_5": 0.1667,
+      "mAP": 0.1066,
+      "mean_genuine_sim": 0.5123
     }
   ]
 }

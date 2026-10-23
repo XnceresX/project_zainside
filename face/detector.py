@@ -34,6 +34,44 @@ DEFAULT_YUNET_PATHS = [
     os.path.join("models", "yunet.onnx"),
 ]
 
+# Canonical 5-point facial reference coordinates for 112x112 ArcFace
+ARCFACE_CANONICAL_5PTS = np.array([
+    [38.2946, 51.6963],   # Right eye (in image coords: viewer's left)
+    [73.5318, 51.5014],   # Left eye (in image coords: viewer's right)
+    [56.0252, 71.7366],   # Nose tip
+    [41.5493, 92.3655],   # Right mouth corner
+    [70.7299, 92.2041],   # Left mouth corner
+], dtype=np.float32)
+
+
+def align_face_5points(
+    image: np.ndarray,
+    landmarks: Optional[np.ndarray],
+    output_size: Tuple[int, int] = (112, 112),
+) -> np.ndarray:
+    """
+    Applies 2D similarity transform (Umeyama / LMEDS) to warp face onto
+    canonical ArcFace 112x112 coordinate space.
+    """
+    if landmarks is None or len(landmarks) < 5 or image is None or image.size == 0:
+        if image is not None and image.size > 0:
+            return cv2.resize(image, output_size)
+        return np.zeros((output_size[1], output_size[0], 3), dtype=np.uint8)
+
+    src_pts = landmarks[:5].astype(np.float32)
+    M, _ = cv2.estimateAffinePartial2D(src_pts, ARCFACE_CANONICAL_5PTS, method=cv2.LMEDS)
+    if M is None:
+        return cv2.resize(image, output_size)
+
+    warped = cv2.warpAffine(
+        image,
+        M,
+        output_size,
+        flags=cv2.INTER_LINEAR,
+        borderMode=cv2.BORDER_REFLECT,
+    )
+    return warped
+
 
 # ---------------------------------------------------------------------------
 # Data classes
@@ -51,11 +89,12 @@ class FacePose:
 class DetectedFace:
     """All information extracted for a single detected face in a frame."""
     bbox: Tuple[int, int, int, int]           # (x1, y1, x2, y2) in pixel coords
-    face_crop: np.ndarray = field(repr=False) # BGR face crop from the frame
+    face_crop: np.ndarray = field(repr=False) # 112x112 similarity-aligned face crop (optimal for ArcFace)
     detection_confidence: float = 0.0         # Detection confidence [0-1]
     landmarks: Optional[np.ndarray] = None    # (N, 2 or 3) landmark coordinates in pixels
     pose: FacePose = field(default_factory=FacePose)
     landmark_visibility: float = 1.0          # Visibility ratio of key facial features [0-1]
+    raw_crop: Optional[np.ndarray] = field(default=None, repr=False) # Original unaligned bounding box crop
 
 
 # ---------------------------------------------------------------------------
@@ -188,20 +227,24 @@ class FaceDetector:
             x2 = min(x + bw + pad_x, w)
             y2 = min(y + bh + pad_y, h)
 
-            crop = frame[y1:y2, x1:x2].copy()
-            if crop.size == 0:
+            raw_crop = frame[y1:y2, x1:x2].copy()
+            if raw_crop.size == 0:
                 continue
+
+            # 5-point affine similarity alignment into canonical 112x112 space
+            aligned_crop = align_face_5points(frame, landmarks_5, (112, 112))
 
             pose = self._estimate_pose_from_5_landmarks(landmarks_5)
             visibility = self._estimate_visibility_from_landmarks(landmarks_5, h, w)
 
             faces.append(DetectedFace(
                 bbox=(x1, y1, x2, y2),
-                face_crop=crop,
+                face_crop=aligned_crop,
                 detection_confidence=conf,
                 landmarks=landmarks_5,
                 pose=pose,
                 landmark_visibility=visibility,
+                raw_crop=raw_crop,
             ))
 
         faces.sort(key=lambda f: f.detection_confidence, reverse=True)
@@ -234,17 +277,34 @@ class FaceDetector:
             x2p = min(x2 + pad_x, w)
             y2p = min(y2 + pad_y, h)
 
-            crop = frame[y1p:y2p, x1p:x2p].copy()
-            if crop.size == 0:
+            raw_crop = frame[y1p:y2p, x1p:x2p].copy()
+            if raw_crop.size == 0:
                 continue
 
+            # Approximate 5 landmarks if relative keypoints are present
+            landmarks_5 = None
+            if hasattr(det.location_data, "relative_keypoints") and len(det.location_data.relative_keypoints) >= 4:
+                kps = det.location_data.relative_keypoints
+                re = [kps[0].x * w, kps[0].y * h]
+                le = [kps[1].x * w, kps[1].y * h]
+                nose = [kps[2].x * w, kps[2].y * h]
+                mc = [kps[3].x * w, kps[3].y * h]
+                dx = (le[0] - re[0]) * 0.25
+                rm = [mc[0] - dx, mc[1]]
+                lm = [mc[0] + dx, mc[1]]
+                landmarks_5 = np.array([re, le, nose, rm, lm], dtype=np.float32)
+
+            aligned_crop = align_face_5points(frame, landmarks_5, (112, 112)) if landmarks_5 is not None else cv2.resize(raw_crop, (112, 112))
             conf = float(det.score[0]) if det.score else 0.5
+
             faces.append(DetectedFace(
                 bbox=(x1p, y1p, x2p, y2p),
-                face_crop=crop,
+                face_crop=aligned_crop,
                 detection_confidence=conf,
+                landmarks=landmarks_5,
                 pose=FacePose(yaw=0.0, pitch=0.0, roll=0.0),
                 landmark_visibility=1.0,
+                raw_crop=raw_crop,
             ))
 
         faces.sort(key=lambda f: f.detection_confidence, reverse=True)
@@ -274,16 +334,19 @@ class FaceDetector:
             x2 = min(x + bw + pad_x, w)
             y2 = min(y + bh + pad_y, h)
 
-            crop = frame[y1:y2, x1:x2].copy()
-            if crop.size == 0:
+            raw_crop = frame[y1:y2, x1:x2].copy()
+            if raw_crop.size == 0:
                 continue
+
+            aligned_crop = cv2.resize(raw_crop, (112, 112))
 
             faces.append(DetectedFace(
                 bbox=(x1, y1, x2, y2),
-                face_crop=crop,
+                face_crop=aligned_crop,
                 detection_confidence=0.85,
                 pose=FacePose(yaw=0.0, pitch=0.0, roll=0.0),
                 landmark_visibility=1.0,
+                raw_crop=raw_crop,
             ))
 
         return faces

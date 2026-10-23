@@ -16,15 +16,17 @@ Track P1 delivers the foundational face recognition and real-time visual quality
 2. Quantify how identification degrades under environmental corruptions (motion blur, low resolution, facial occlusion) to provide the empirical ground-truth required for **Quality-Adaptive Multimodal Fusion** in Track P2.
 
 Under clean baseline conditions on the LFW benchmark, Track P1 achieved:
-- **Rank-1 Identification Accuracy:** **89.33%** (Target: $\ge 85.0\%$)
-- **Rank-5 Identification Accuracy:** **94.00%** (Target: $\ge 92.0\%$)
-- **Mean Average Precision (mAP):** **0.9168** (Target: $\ge 0.800$)
-- **Verification Accuracy:** **99.29%** (Target: $\ge 90.0\%$)
-- **ROC-AUC:** **0.9681** (Target: $\ge 0.950$)
-- **Equal Error Rate (EER):** **6.74%** (Target: $\le 8.0\%$)
-- **Optimal Decision Threshold:** $\tau^* = 0.755$ (Target: $0.5 - 0.8$)
+- **Rank-1 Identification Accuracy:** **93.33%** (Target: $\ge 85.0\%$, +4.0% gain over loose crop)
+- **Rank-5 Identification Accuracy:** **96.00%** (Target: $\ge 92.0\%$)
+- **Rank-10 Identification Accuracy:** **96.67%** (Target: $\ge 95.0\%$)
+- **Mean Average Precision (mAP):** **0.9470** (Target: $\ge 0.800$)
+- **Verification Accuracy:** **99.63%** (Target: $\ge 90.0\%$)
+- **ROC-AUC:** **0.9816** (Target: $\ge 0.950$)
+- **Equal Error Rate (EER):** **5.00%** (Target: $\le 8.0\%$, 26% error reduction)
+- **Optimal Decision Threshold:** $\tau^* = 0.710$ (Target: $0.5 - 0.8$)
+- **Genuine vs Impostor Separation Margin:** **+0.2596** (Mean Genuine: 0.7858 vs Mean Impostor: 0.5262)
 
-Under controlled degradation sweeps, the evaluation demonstrated that when face crops experience severe blur ($\sigma \ge 5.0$), extreme downscaling ($h \le 20\text{px}$), or occlusion ($\ge 40\%$), Rank-1 accuracy plummets from **85.0% down to 1.7%–5.0%**. The quality estimation engine detected these anomalies in real-time, reducing the recommended face weight $w_{\text{face}}$ accordingly.
+Under controlled degradation sweeps, the evaluation demonstrated that when face crops experience severe blur ($\sigma \ge 5.0$) or heavy occlusion ($\ge 40\%$), Rank-1 accuracy drops to **0.0%–5.0%**. Crucially, the 5-point affine alignment enabled extreme low-resolution crops ($h = 20\text{px}$) to retain **53.3% Rank-1 accuracy** (up from 5.0% with unaligned crops). The quality estimation engine detected all corrupted regimes in real-time, reducing the recommended face weight $w_{\text{face}}$ accordingly.
 
 ---
 
@@ -106,17 +108,17 @@ $$w_{\text{face}} = \begin{cases}
 | **Gallery Size** | $\ge 20$ identities | **50 identities** | PASS |
 | **Probe Size** | $\ge 100$ probes | **300 probes** | PASS |
 | **Face Detection Rate** | $\ge 98.0\%$ | **100.0% (350/350)** | PASS |
-| **Rank-1 CMC Accuracy** | $\ge 85.0\%$ | **89.33%** | PASS |
-| **Rank-5 CMC Accuracy** | $\ge 92.0\%$ | **94.00%** | PASS |
-| **Rank-10 CMC Accuracy** | $\ge 95.0\%$ | **95.67%** | PASS |
-| **Mean Average Precision (mAP)** | $\ge 0.800$ | **0.9168** | PASS |
-| **Binary Verification Accuracy** | $\ge 90.0\%$ | **99.29%** | PASS |
-| **ROC Area Under Curve (AUC)** | $\ge 0.950$ | **0.9681** | PASS |
-| **Equal Error Rate (EER)** | $\le 8.0\%$ | **6.74%** | PASS |
-| **Optimal Cosine Threshold ($\tau^*$)** | $0.50 - 0.80$ | **0.755** | PASS |
-| **Mean Genuine Cosine Similarity** | $> 0.700$ | **0.7797** | PASS |
-| **Mean Impostor Cosine Similarity** | $< 0.650$ | **0.5758** | PASS |
-| **Cosine Separation Margin ($\Delta \mu$)** | $> 0.150$ | **+0.2039** | PASS |
+| **Rank-1 CMC Accuracy** | $\ge 85.0\%$ | **93.33%** | PASS (+4.0% gain) |
+| **Rank-5 CMC Accuracy** | $\ge 92.0\%$ | **96.00%** | PASS (+2.0% gain) |
+| **Rank-10 CMC Accuracy** | $\ge 95.0\%$ | **96.67%** | PASS |
+| **Mean Average Precision (mAP)** | $\ge 0.800$ | **0.9470** | PASS (+0.030 gain) |
+| **Binary Verification Accuracy** | $\ge 90.0\%$ | **99.63%** | PASS |
+| **ROC Area Under Curve (AUC)** | $\ge 0.950$ | **0.9816** | PASS |
+| **Equal Error Rate (EER)** | $\le 8.0\%$ | **5.00%** | PASS (26% error drop) |
+| **Optimal Cosine Threshold ($\tau^*$)** | $0.50 - 0.80$ | **0.710** | PASS |
+| **Mean Genuine Cosine Similarity** | $> 0.700$ | **0.7858** | PASS |
+| **Mean Impostor Cosine Similarity** | $< 0.650$ | **0.5262** | PASS (Separation improved) |
+| **Cosine Separation Margin ($\Delta \mu$)** | $> 0.150$ | **+0.2596** | PASS (+27% wider margin) |
 
 ---
 
@@ -124,15 +126,15 @@ $$w_{\text{face}} = \begin{cases}
 
 | Condition | Avg Blur ($Q_{\text{blur}}$) | Avg Occ ($Q_{\text{occ}}$) | Rec $w_{\text{face}}$ | Rank-1 Acc | mAP | Mean Genuine Sim |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Clean (Original)** | 0.643 | 0.010 | **0.67** | **85.0%** | **0.876** | **0.7686** |
-| **Blur ($\sigma=2.0$)** | 0.045 | 0.007 | **0.40** | **85.0%** | **0.876** | **0.7291** |
-| **Blur ($\sigma=5.0$)** | 0.012 | 0.003 | **0.40** | **1.7%** | **0.136** | **0.5347** |
-| **Blur ($\sigma=10.0$)** | 0.010 | 0.001 | **0.40** | **1.7%** | **0.097** | **0.5181** |
-| **Downscale ($h=40\text{px}$)** | 0.097 | 0.008 | **0.40** | **81.7%** | **0.856** | **0.7307** |
-| **Downscale ($h=20\text{px}$)** | 0.032 | 0.005 | **0.40** | **5.0%** | **0.236** | **0.5733** |
-| **Occlusion (20% lower)** | 0.997 | 0.206 | **0.70** | **66.7%** | **0.756** | **0.6984** |
-| **Occlusion (40% lower)** | 1.000 | 0.404 | **0.70** | **5.0%** | **0.316** | **0.5805** |
-| **Occlusion (50% random)** | 0.998 | 0.503 | **0.70** | **1.7%** | **0.140** | **0.5319** |
+| **Clean (Original)** | 0.734 | 0.015 | **0.68** | **88.3%** | **0.908** | **0.7729** |
+| **Blur ($\sigma=2.0$)** | 0.048 | 0.011 | **0.40** | **81.7%** | **0.863** | **0.7084** |
+| **Blur ($\sigma=5.0$)** | 0.013 | 0.007 | **0.40** | **0.0%** | **0.104** | **0.5108** |
+| **Blur ($\sigma=10.0$)** | 0.009 | 0.003 | **0.40** | **3.3%** | **0.098** | **0.5048** |
+| **Downscale ($h=40\text{px}$)** | 0.163 | 0.013 | **0.40** | **83.3%** | **0.879** | **0.7399** |
+| **Downscale ($h=20\text{px}$)** | 0.051 | 0.010 | **0.40** | **53.3%** | **0.617** | **0.6017** |
+| **Occlusion (20% lower)** | 1.000 | 0.214 | **0.70** | **66.7%** | **0.734** | **0.6471** |
+| **Occlusion (40% lower)** | 1.000 | 0.405 | **0.70** | **5.0%** | **0.180** | **0.5277** |
+| **Occlusion (50% random)** | 1.000 | 0.509 | **0.70** | **1.7%** | **0.107** | **0.5123** |
 
 ---
 

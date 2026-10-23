@@ -39,8 +39,9 @@ class FaceFeatureExtractor:
     Extracts 512-dimensional normalized embeddings from face crops.
     """
 
-    def __init__(self, model_path: Optional[str] = None):
+    def __init__(self, model_path: Optional[str] = None, use_tta: bool = True):
         self.model_path = model_path
+        self.use_tta = use_tta
         self.session = None
         self.input_name = None
         self.input_shape = None
@@ -88,18 +89,22 @@ class FaceFeatureExtractor:
                 self.is_nhwc = False
 
             self.model_path = model_path
-            print(f"[FaceExtractor] Loaded ONNX model from {model_path} (Layout: {'NHWC' if self.is_nhwc else 'NCHW'})")
+            print(f"[FaceExtractor] Loaded ONNX model from {model_path} (Layout: {'NHWC' if self.is_nhwc else 'NCHW'}, TTA: {self.use_tta})")
         except Exception as e:
             print(f"[FaceExtractor] Warning: Could not load ONNX model ({e}). Using fallback extractor.")
             self.session = None
 
-    def extract_embedding(self, face_crop: np.ndarray) -> np.ndarray:
+    def extract_embedding(self, face_crop: np.ndarray, use_tta: Optional[bool] = None) -> np.ndarray:
         """
         Extracts 512-dimensional normalized embedding from a face crop.
         Accepts BGR image crop from OpenCV / FaceDetector.
+        When use_tta is True, applies flip-averaged Test-Time Augmentation.
         """
         if face_crop is None or face_crop.size == 0:
             return np.zeros(512, dtype=np.float32)
+
+        if use_tta is None:
+            use_tta = self.use_tta
 
         if self.session is not None:
             try:
@@ -113,17 +118,35 @@ class FaceFeatureExtractor:
                     rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
 
                 # Normalized float tensor in [-1, 1]
-                blob = (rgb.astype(np.float32) / 127.5) - 1.0
+                blob_orig = (rgb.astype(np.float32) / 127.5) - 1.0
 
-                if self.is_nhwc:
-                    # [1, 112, 112, 3]
-                    blob = np.expand_dims(blob, axis=0)
+                if use_tta:
+                    # Test-Time Augmentation: joint batch inference with horizontal flip
+                    rgb_flip = cv2.flip(rgb, 1)
+                    blob_flip = (rgb_flip.astype(np.float32) / 127.5) - 1.0
+
+                    if self.is_nhwc:
+                        # [2, 112, 112, 3]
+                        batch = np.stack([blob_orig, blob_flip], axis=0)
+                    else:
+                        # [2, 3, 112, 112]
+                        batch = np.stack([
+                            np.transpose(blob_orig, (2, 0, 1)),
+                            np.transpose(blob_flip, (2, 0, 1))
+                        ], axis=0)
+
+                    outputs = self.session.run([self.output_name], {self.input_name: batch})
+                    e_orig = outputs[0][0].flatten().astype(np.float32)
+                    e_flip = outputs[0][1].flatten().astype(np.float32)
+                    emb = e_orig + e_flip
                 else:
-                    # [1, 3, 112, 112]
-                    blob = np.transpose(blob, (2, 0, 1))[np.newaxis, :]
+                    if self.is_nhwc:
+                        blob = np.expand_dims(blob_orig, axis=0)
+                    else:
+                        blob = np.transpose(blob_orig, (2, 0, 1))[np.newaxis, :]
+                    outputs = self.session.run([self.output_name], {self.input_name: blob})
+                    emb = outputs[0].flatten().astype(np.float32)
 
-                outputs = self.session.run([self.output_name], {self.input_name: blob})
-                emb = outputs[0].flatten().astype(np.float32)
                 norm = np.linalg.norm(emb) + 1e-8
                 return emb / norm
             except Exception as e:

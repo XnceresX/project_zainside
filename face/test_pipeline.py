@@ -102,7 +102,6 @@ def test_quality_scoring():
           f"color={q_good.recommended_color_weight}]")
 
     print("  [PASS] Quality scoring tests passed")
-    return q_good
 
 
 def test_extractor():

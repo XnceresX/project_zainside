@@ -207,7 +207,13 @@ def create_synthetic_benchmark(num_identities: int = 10, images_per_id: int = 4)
     return gallery, probe
 
 
-def load_dataset_from_dir(dataset_dir: str) -> Tuple[List[dict], List[dict]]:
+def load_dataset_from_dir(
+    dataset_dir: str,
+    detector: Optional[FaceDetector] = None,
+    max_identities: Optional[int] = None,
+    max_probes_per_id: Optional[int] = None,
+    crop_faces: bool = True,
+) -> Tuple[List[dict], List[dict]]:
     """
     Loads dataset from directory structure:
         dataset_dir/
@@ -216,6 +222,7 @@ def load_dataset_from_dir(dataset_dir: str) -> Tuple[List[dict], List[dict]]:
                 img2.jpg
             person_02/
                 ...
+    If crop_faces is True and detector is provided, extracts face crops using YuNet.
     """
     gallery: List[dict] = []
     probe: List[dict] = []
@@ -224,23 +231,51 @@ def load_dataset_from_dir(dataset_dir: str) -> Tuple[List[dict], List[dict]]:
         return gallery, probe
 
     subdirs = sorted([d for d in os.listdir(dataset_dir) if os.path.isdir(os.path.join(dataset_dir, d))])
+    if max_identities is not None and max_identities > 0:
+        subdirs = subdirs[:max_identities]
+
+    print(f"[SAFEPASS Eval] Scanning {len(subdirs)} identities from {dataset_dir}...")
+
+    total_images_processed = 0
+    faces_detected = 0
+
     for person_id in subdirs:
         person_folder = os.path.join(dataset_dir, person_id)
         img_files = sorted([
             f for f in os.listdir(person_folder)
             if f.lower().endswith((".jpg", ".jpeg", ".png", ".bmp"))
         ])
-        for idx, fname in enumerate(img_files):
+        if not img_files:
+            continue
+
+        if max_probes_per_id is not None and max_probes_per_id > 0 and len(img_files) > max_probes_per_id + 1:
+            selected_files = [img_files[0]] + img_files[1:max_probes_per_id + 1]
+        else:
+            selected_files = img_files
+
+        for idx, fname in enumerate(selected_files):
             fpath = os.path.join(person_folder, fname)
             img = cv2.imread(fpath)
             if img is None:
                 continue
-            item = {"id": person_id, "image": img, "name": fname}
+
+            total_images_processed += 1
+            face_img = img
+
+            # Detect and crop face if detector is active and image is not already 112x112
+            if crop_faces and detector is not None and (img.shape[0] > 112 or img.shape[1] > 112):
+                det = detector.detect_single(img)
+                if det is not None and det.face_crop is not None and det.face_crop.size > 0:
+                    face_img = det.face_crop
+                    faces_detected += 1
+
+            item = {"id": person_id, "image": face_img, "name": fname}
             if idx == 0:
                 gallery.append(item)
             else:
                 probe.append(item)
 
+    print(f"[SAFEPASS Eval] Prepared dataset: {len(gallery)} gallery, {len(probe)} probes (faces detected: {faces_detected}/{total_images_processed}).")
     return gallery, probe
 
 
@@ -315,6 +350,7 @@ class FaceBaselineEvaluator:
         self,
         gallery: List[dict],
         probe: List[dict],
+        max_samples: Optional[int] = 60,
     ) -> List[Dict[str, any]]:
         """
         Applies controlled degradations to probe images and evaluates how
@@ -323,6 +359,14 @@ class FaceBaselineEvaluator:
         print("\n[SAFEPASS Eval] Running Degradation Benchmark across multiple corruption regimes...")
         gallery_embs = [self.extractor.extract_embedding(item["image"]) for item in gallery]
         gallery_ids = [item["id"] for item in gallery]
+
+        # Use representative sample if probe set is large to keep degradation sweep fast
+        if max_samples is not None and max_samples > 0 and len(probe) > max_samples:
+            step = len(probe) / max_samples
+            eval_probe = [probe[int(i * step)] for i in range(max_samples)]
+            print(f"[SAFEPASS Eval] Subsampling {len(eval_probe)} representative probes for degradation sweep.")
+        else:
+            eval_probe = probe
 
         conditions = [
             ("Clean (Original)", lambda img: img.copy()),
@@ -339,7 +383,7 @@ class FaceBaselineEvaluator:
         degradation_results = []
 
         for cond_name, transform in conditions:
-            corrupted_probes = [transform(item["image"]) for item in probe]
+            corrupted_probes = [transform(item["image"]) for item in eval_probe]
 
             # Measure average quality scores on corrupted probes
             quality_scores = []
@@ -355,18 +399,18 @@ class FaceBaselineEvaluator:
                 corrupted_embs.append(self.extractor.extract_embedding(crop))
 
             # Similarity matrix
-            sim_matrix = np.zeros((len(probe), len(gallery)), dtype=np.float32)
+            sim_matrix = np.zeros((len(eval_probe), len(gallery)), dtype=np.float32)
             for i, p_emb in enumerate(corrupted_embs):
                 for j, g_emb in enumerate(gallery_embs):
                     sim_matrix[i, j] = cosine_similarity(p_emb, g_emb)
 
-            probe_ids = [item["id"] for item in probe]
+            probe_ids = [item["id"] for item in eval_probe]
             cmc, mean_ap = compute_cmc_and_map(sim_matrix, gallery_ids, probe_ids)
 
             # Genuine matching similarity drop
             genuine_sims = [
                 float(sim_matrix[i, gallery_ids.index(probe_ids[i])])
-                for i in range(len(probe))
+                for i in range(len(eval_probe))
                 if probe_ids[i] in gallery_ids
             ]
             mean_genuine = float(np.mean(genuine_sims)) if genuine_sims else 0.0
@@ -414,20 +458,31 @@ def print_summary_tables(clean_results: dict, degradation_results: List[dict]):
 def main():
     parser = argparse.ArgumentParser(description="SAFEPASS Track P1 Face Baseline & Degradation Evaluation")
     parser.add_argument("--dataset_dir", type=str, default="", help="Path to image dataset by identity folders")
+    parser.add_argument("--max_identities", type=int, default=None, help="Maximum number of identities to evaluate (default: all)")
+    parser.add_argument("--max_probes_per_id", type=int, default=None, help="Maximum probe images per identity (default: all)")
+    parser.add_argument("--degradation_samples", type=int, default=60, help="Number of probe samples for degradation analysis (default: 60)")
+    parser.add_argument("--no_crop", action="store_true", help="Skip face detection/cropping (assumes images are pre-cropped faces)")
     parser.add_argument("--output_json", type=str, default="eval/results_face_baseline.json", help="Path to output JSON")
     args = parser.parse_args()
 
     evaluator = FaceBaselineEvaluator()
 
     if args.dataset_dir and os.path.exists(args.dataset_dir):
-        print(f"[SAFEPASS Eval] Loading custom dataset from {args.dataset_dir}...")
-        gallery, probe = load_dataset_from_dir(args.dataset_dir)
+        gallery, probe = load_dataset_from_dir(
+            dataset_dir=args.dataset_dir,
+            detector=evaluator.detector if not args.no_crop else None,
+            max_identities=args.max_identities,
+            max_probes_per_id=args.max_probes_per_id,
+            crop_faces=not args.no_crop,
+        )
     else:
         print("[SAFEPASS Eval] Using standardized synthetic paired benchmark (15 identities, 4 samples each)...")
         gallery, probe = create_synthetic_benchmark(num_identities=15, images_per_id=4)
 
     clean_results = evaluator.run_clean_evaluation(gallery, probe)
-    degradation_results = evaluator.run_degradation_benchmark(gallery, probe)
+    degradation_results = evaluator.run_degradation_benchmark(
+        gallery, probe, max_samples=args.degradation_samples
+    )
 
     print_summary_tables(clean_results, degradation_results)
 
@@ -435,6 +490,8 @@ def main():
     output_data = {
         "track": "P1 - Face Pipeline & Quality Estimation",
         "model": "ArcFace ONNX (512-d)",
+        "detector": "OpenCV YuNet ONNX" if not args.no_crop else "Pre-cropped",
+        "dataset": args.dataset_dir if args.dataset_dir else "Synthetic",
         "clean_baseline": clean_results,
         "degradation_study": degradation_results,
     }

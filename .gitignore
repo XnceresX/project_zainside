@@ -234,4 +234,6 @@ data/*
 *.mkv
 .env
 .env.*
+eval/video_results/
+eval/test_frame.jpg
 

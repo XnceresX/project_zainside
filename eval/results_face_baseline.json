@@ -1,0 +1,110 @@
+{
+  "track": "P1 - Face Pipeline & Quality Estimation",
+  "model": "ArcFace ONNX (512-d)",
+  "clean_baseline": {
+    "num_gallery": 15,
+    "num_probes": 45,
+    "rank_1": 1.0,
+    "rank_5": 1.0,
+    "rank_10": 1.0,
+    "mAP": 1.0,
+    "verification_accuracy": 0.997,
+    "roc_auc": 1.0,
+    "eer": 0.0016,
+    "optimal_threshold": 0.995,
+    "mean_genuine_sim": 0.9996,
+    "mean_impostor_sim": 0.9837
+  },
+  "degradation_study": [
+    {
+      "condition": "Clean (Original)",
+      "avg_blur_score": 1.0,
+      "avg_occlusion_score": 0.0,
+      "rec_face_weight": 0.7,
+      "rank_1": 1.0,
+      "rank_5": 1.0,
+      "mAP": 1.0,
+      "mean_genuine_sim": 0.9996
+    },
+    {
+      "condition": "Blur (sigma=2.0)",
+      "avg_blur_score": 0.0301,
+      "avg_occlusion_score": 0.0,
+      "rec_face_weight": 0.4,
+      "rank_1": 0.1333,
+      "rank_5": 0.4667,
+      "mAP": 0.2614,
+      "mean_genuine_sim": 0.9512
+    },
+    {
+      "condition": "Blur (sigma=5.0)",
+      "avg_blur_score": 0.0102,
+      "avg_occlusion_score": 0.0,
+      "rec_face_weight": 0.4,
+      "rank_1": 0.0667,
+      "rank_5": 0.4,
+      "mAP": 0.2321,
+      "mean_genuine_sim": 0.9656
+    },
+    {
+      "condition": "Blur (sigma=10.0)",
+      "avg_blur_score": 0.0088,
+      "avg_occlusion_score": 0.0,
+      "rec_face_weight": 0.4,
+      "rank_1": 0.0667,
+      "rank_5": 0.3333,
+      "mAP": 0.2263,
+      "mean_genuine_sim": 0.9698
+    },
+    {
+      "condition": "Downscale (h=40px)",
+      "avg_blur_score": 0.1596,
+      "avg_occlusion_score": 0.0,
+      "rec_face_weight": 0.4,
+      "rank_1": 0.1333,
+      "rank_5": 0.4667,
+      "mAP": 0.2805,
+      "mean_genuine_sim": 0.969
+    },
+    {
+      "condition": "Downscale (h=20px)",
+      "avg_blur_score": 0.026,
+      "avg_occlusion_score": 0.0,
+      "rec_face_weight": 0.4,
+      "rank_1": 0.0667,
+      "rank_5": 0.3333,
+      "mAP": 0.2223,
+      "mean_genuine_sim": 0.9525
+    },
+    {
+      "condition": "Occlusion (20% lower)",
+      "avg_blur_score": 1.0,
+      "avg_occlusion_score": 0.1993,
+      "rec_face_weight": 0.7,
+      "rank_1": 0.4889,
+      "rank_5": 0.8889,
+      "mAP": 0.6835,
+      "mean_genuine_sim": 0.9712
+    },
+    {
+      "condition": "Occlusion (40% lower)",
+      "avg_blur_score": 1.0,
+      "avg_occlusion_score": 0.3906,
+      "rec_face_weight": 0.7,
+      "rank_1": 0.1333,
+      "rank_5": 0.4,
+      "mAP": 0.278,
+      "mean_genuine_sim": 0.9751
+    },
+    {
+      "condition": "Occlusion (50% random)",
+      "avg_blur_score": 1.0,
+      "avg_occlusion_score": 0.4975,
+      "rec_face_weight": 0.7,
+      "rank_1": 0.0667,
+      "rank_5": 0.3556,
+      "mAP": 0.2373,
+      "mean_genuine_sim": 0.9725
+    }
+  ]
+}

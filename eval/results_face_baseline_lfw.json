@@ -1,0 +1,112 @@
+{
+  "track": "P1 - Face Pipeline & Quality Estimation",
+  "model": "ArcFace ONNX (512-d)",
+  "detector": "SCRFD ONNX (Anti-Ghost + 5pt Align)",
+  "dataset": "data/lfw",
+  "clean_baseline": {
+    "num_gallery": 50,
+    "num_probes": 300,
+    "rank_1": 0.9433,
+    "rank_5": 0.97,
+    "rank_10": 0.9733,
+    "mAP": 0.9573,
+    "verification_accuracy": 0.9967,
+    "roc_auc": 0.9851,
+    "eer": 0.0421,
+    "optimal_threshold": 0.73,
+    "mean_genuine_sim": 0.7964,
+    "mean_impostor_sim": 0.5247
+  },
+  "degradation_study": [
+    {
+      "condition": "Clean (Original)",
+      "avg_blur_score": 0.7265,
+      "avg_occlusion_score": 0.0148,
+      "rec_face_weight": 0.68,
+      "rank_1": 0.9333,
+      "rank_5": 0.9667,
+      "mAP": 0.9483,
+      "mean_genuine_sim": 0.7866
+    },
+    {
+      "condition": "Blur (sigma=2.0)",
+      "avg_blur_score": 0.048,
+      "avg_occlusion_score": 0.0112,
+      "rec_face_weight": 0.4,
+      "rank_1": 0.8667,
+      "rank_5": 0.9667,
+      "mAP": 0.9083,
+      "mean_genuine_sim": 0.7268
+    },
+    {
+      "condition": "Blur (sigma=5.0)",
+      "avg_blur_score": 0.0124,
+      "avg_occlusion_score": 0.0069,
+      "rec_face_weight": 0.4,
+      "rank_1": 0.0167,
+      "rank_5": 0.2833,
+      "mAP": 0.1179,
+      "mean_genuine_sim": 0.5159
+    },
+    {
+      "condition": "Blur (sigma=10.0)",
+      "avg_blur_score": 0.0094,
+      "avg_occlusion_score": 0.003,
+      "rec_face_weight": 0.4,
+      "rank_1": 0.0167,
+      "rank_5": 0.1,
+      "mAP": 0.0952,
+      "mean_genuine_sim": 0.5094
+    },
+    {
+      "condition": "Downscale (h=40px)",
+      "avg_blur_score": 0.1618,
+      "avg_occlusion_score": 0.0127,
+      "rec_face_weight": 0.4,
+      "rank_1": 0.9,
+      "rank_5": 0.9667,
+      "mAP": 0.9307,
+      "mean_genuine_sim": 0.7569
+    },
+    {
+      "condition": "Downscale (h=20px)",
+      "avg_blur_score": 0.0513,
+      "avg_occlusion_score": 0.0099,
+      "rec_face_weight": 0.4,
+      "rank_1": 0.2833,
+      "rank_5": 0.75,
+      "mAP": 0.5122,
+      "mean_genuine_sim": 0.6169
+    },
+    {
+      "condition": "Occlusion (20% lower)",
+      "avg_blur_score": 1.0,
+      "avg_occlusion_score": 0.2138,
+      "rec_face_weight": 0.7,
+      "rank_1": 0.5833,
+      "rank_5": 0.9333,
+      "mAP": 0.7236,
+      "mean_genuine_sim": 0.6622
+    },
+    {
+      "condition": "Occlusion (40% lower)",
+      "avg_blur_score": 1.0,
+      "avg_occlusion_score": 0.404,
+      "rec_face_weight": 0.7,
+      "rank_1": 0.0167,
+      "rank_5": 0.2833,
+      "mAP": 0.1626,
+      "mean_genuine_sim": 0.5344
+    },
+    {
+      "condition": "Occlusion (50% random)",
+      "avg_blur_score": 1.0,
+      "avg_occlusion_score": 0.51,
+      "rec_face_weight": 0.7,
+      "rank_1": 0.0167,
+      "rank_5": 0.0667,
+      "mAP": 0.0948,
+      "mean_genuine_sim": 0.5159
+    }
+  ]
+}

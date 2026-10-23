@@ -106,6 +106,7 @@ def estimate_face_quality(
     yaw: float = 0.0,
     pitch: float = 0.0,
     landmark_visibility: float = 1.0,
+    face_height: Optional[int] = None,
 ) -> QualityMetrics:
     """
     Compute a comprehensive face quality assessment and recommend dynamic
@@ -125,7 +126,9 @@ def estimate_face_quality(
         )
 
     # --- Individual scores ---------------------------------------------------
-    h = face_image.shape[0]
+    # Use the detector's source-frame face box when provided. Aligned crops are
+    # resized to 112px and otherwise hide how small the face was in the frame.
+    h = int(face_height) if face_height is not None else face_image.shape[0]
     blur = calculate_blur_score(face_image)
     res = calculate_resolution_score(h)
     pose = calculate_pose_score(yaw, pitch)

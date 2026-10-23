@@ -20,7 +20,14 @@ from face.multiview import (
     MultiViewGalleryItem,
     MultiViewEnrollmentEngine,
 )
-from face.video_search import VideoSearchEngine
+
+
+def __getattr__(name: str):
+    if name == "VideoSearchEngine":
+        from face.video_search import VideoSearchEngine
+        return VideoSearchEngine
+    raise AttributeError(f"module 'face' has no attribute '{name}'")
+
 
 __all__ = [
     "FaceDetector",
@@ -37,4 +44,5 @@ __all__ = [
     "MultiViewEnrollmentEngine",
     "VideoSearchEngine",
 ]
+
 

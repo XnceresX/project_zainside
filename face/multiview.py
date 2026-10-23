@@ -136,6 +136,10 @@ class MultiViewGalleryItem:
         Returns (max_cosine_similarity, best_matching_viewpoint).
         """
         probe_emb = extractor.extract_embedding(probe_crop)
+        return self.match_embedding(probe_emb)
+
+    def match_embedding(self, probe_emb: np.ndarray) -> Tuple[float, str]:
+        """Compare a precomputed probe embedding with cached gallery vectors."""
         best_sim = -1.0
         best_view = "front"
 

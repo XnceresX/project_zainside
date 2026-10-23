@@ -11,7 +11,8 @@
 | `pruner.py` | `SpatiotemporalPruner`: same-camera, no-path and teleportation rules, plus a learned likelihood score (manual fallback: exponential decay beyond `dt_max`, λ = 1). |
 | `forecaster.py` | `BlindSpotForecaster`: produces a `SpatialPrediction`, with a momentum (backtrack) penalty and a path-based or learned arrival window. |
 | `trajectory.py` | `TrajectoryReconstructor`: selects a DP (or greedy) topology-consistent chain and returns `TrajectoryPoint`s plus blind-spot intervals. |
-| `visualizer.py` | Matplotlib plots: venue graph, travel-time fits, forecast, trajectory. |
+| `visualizer.py` | Matplotlib plots: venue graph, camera graph with `[dt_min, dt_max]` corridor labels + highlighted trajectory (`python -m topology.visualizer`), travel-time fits, forecast, trajectory. |
 | `test_pipeline.py` | `python -m topology.test_pipeline` |
+| `stubs.py` | `python -m topology.stubs` regenerates schema-valid stub JSON in `topology/stubs/` for P4/P1/P2 integration. |
 
 Evaluation: `python -m eval.topology_baseline`. See `eval/EVAL_REPORT_P3.md`.

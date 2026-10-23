@@ -309,6 +309,113 @@ def e4b_stress(manual, learned, truth, probs, n_test, targets, rates, hop_levels
     return {"rows": rows}
 
 
+def e0_ablation(manual, learned, test: SimulationResult, cand_sets) -> Dict:
+    """
+    Task 7 ablation on simulator data with injected false matches:
+        (a) no topology    - biometric confidence only, search every camera
+        (b) manual priors  - full P3 pipeline on the hand-set graph
+        (c) learned priors - full P3 pipeline on the learned model
+    Reported per condition: trajectory precision/recall, false-candidate (look-alike)
+    rejection rate, next-camera top-1/top-3, and search-space reduction, i.e. the
+    fraction of (camera x time) cells an operator would have to watch, relative to
+    watching every camera for the whole remaining search period.
+    """
+    n_cams = len(manual.cameras)
+    pr_m = SpatiotemporalPruner(manual, use_learned=False)
+    pr_l = SpatiotemporalPruner(learned)
+    conds = {
+        "no_topology": None,
+        "manual": (TrajectoryReconstructor(manual, pr_m, method="dp"), BlindSpotForecaster(manual)),
+        "learned": (TrajectoryReconstructor(learned, pr_l, method="dp"), BlindSpotForecaster(learned)),
+    }
+    out = {}
+    for name, setup in conds.items():
+        tp = fp = fn = 0
+        n_look = n_look_kept = 0
+        cam_frac, win_s, span_s, hit = [], [], [], []
+        top1 = top3 = 0
+        n_events = 0
+        base = test.base_time.timestamp()
+        for pid, (cands, labels) in cand_sets.items():
+            visits = test.trajectories[pid]
+            if setup is None:
+                steps: Dict[int, object] = {}
+                for c in cands:
+                    k = int(math.floor(to_seconds(c.timestamp)))
+                    if k not in steps or c.fused_score > steps[k].fused_score:
+                        steps[k] = c
+                chosen = [steps[k] for k in sorted(steps)]
+            else:
+                chosen = setup[0].reconstruct(cands).selected
+            ids = {c.candidate_id for c in chosen}
+            tp += sum(1 for c in ids if labels[c])
+            fp += sum(1 for c in ids if not labels[c])
+            fn += sum(1 for c, ok in labels.items() if ok and c not in ids)
+            n_look += sum(1 for ok in labels.values() if not ok)
+            n_look_kept += sum(1 for c in ids if not labels[c])
+
+            # mid-search scenario: the operator has confirmed points up to an anchor that
+            # is not in the final camera visit, and must decide where to look next
+            chosen_sorted = sorted(chosen, key=lambda c: to_seconds(c.timestamp))
+            if not chosen_sorted:
+                continue
+            groups: List[List] = [[]]
+            for c in chosen_sorted:
+                if groups[-1] and (c.camera_id != groups[-1][-1].camera_id
+                                   or to_seconds(c.timestamp) - to_seconds(groups[-1][-1].timestamp) > 20.0):
+                    groups.append([])
+                groups[-1].append(c)
+            anchor_group = groups[-2] if len(groups) >= 2 else groups[0]
+            anchor = anchor_group[-1]
+            t_last = to_seconds(anchor.timestamp) - base
+            obs = [v for v in visits if v.observed]
+            nxt = [v for v in obs if v.arrival_time > t_last + 1e-6]
+            span = (visits[-1].departure_time - t_last) if nxt else 0.0
+            if not nxt:
+                continue
+            arrive = nxt[0].arrival_time - t_last
+            true_cam = nxt[0].camera_id
+            if setup is None:
+                cams, w = list(manual.cameras), span          # watch everything until period end
+                top1 += 1 / n_cams
+                top3 += min(3 / n_cams, 1.0)
+                n_events += 1
+            else:
+                fc = setup[1]
+                hist = [c for c in chosen_sorted if to_seconds(c.timestamp) <= to_seconds(anchor.timestamp)]
+                pred = fc.forecast(anchor.camera_id, anchor.timestamp, hist)
+                cams, w = [], 0.0
+                mass = 0.0
+                for c, p in zip(pred.candidate_next_cameras, pred.transition_probabilities):
+                    cams.append(c)
+                    mass += p
+                    if mass >= 0.9 - 1e-9:
+                        break
+                w = pred.estimated_arrival_window_seconds[1]
+                top1 += pred.candidate_next_cameras[0] == true_cam
+                top3 += true_cam in pred.candidate_next_cameras[:3]
+                n_events += 1
+            cam_frac.append(len(cams) / n_cams)
+            win_s.append(w)
+            span_s.append(span)
+            hit.append(true_cam in cams and w >= arrive >= 0)
+        p, r = tp / max(tp + fp, 1), tp / max(tp + fn, 1)
+        searched = [f * (w / max(s, 1e-9)) for f, w, s in zip(cam_frac, win_s, span_s)]
+        out[name] = {
+            "precision": p, "recall": r, "f1": 2 * p * r / max(p + r, 1e-12),
+            "false_candidate_rejection_rate": 1 - n_look_kept / max(n_look, 1),
+            "next_camera_top1": top1 / max(n_events, 1),
+            "next_camera_top3": top3 / max(n_events, 1),
+            "searched_cell_fraction": float(np.mean(searched)),
+            "search_space_reduction": 1 - float(np.mean(searched)),
+            "searched_camera_fraction": float(np.mean(cam_frac)),
+            "searched_window_mean_s": float(np.mean(win_s)),
+            "search_baseline_span_mean_s": float(np.mean(span_s)),
+            "next_sighting_inside_searched_space": float(np.mean(hit)),
+        }
+    return out
+
+
 def e5_forecaster(manual, learned, test: SimulationResult) -> Dict:
     configs = {
         "uniform": None,
@@ -330,7 +437,7 @@ def e5_forecaster(manual, learned, test: SimulationResult) -> Dict:
                 events.append((a.camera_id, last, list(history[-5:]), b.camera_id, b.arrival_time - last))
     out = {"n_events": len(events)}
     for name, fc in configs.items():
-        top1 = top2 = 0.0
+        top1 = top2 = top3 = 0.0
         nll, cov_cam, cov_union, width_cam, width_union = [], [], [], [], []
         for cam, last, hist, true_next, true_dt in events:
             if fc is None:
@@ -340,6 +447,7 @@ def e5_forecaster(manual, learned, test: SimulationResult) -> Dict:
                                  max(manual.get_transit_window(cam, c)[1] for c in succ))
                 top1 += 1 / len(succ)            # expected accuracy of a random tie-break
                 top2 += min(2 / len(succ), 1.0)
+                top3 += min(3 / len(succ), 1.0)
             else:
                 det = fc.forecast_detailed(cam, None, hist)
                 pred = det.prediction
@@ -348,13 +456,14 @@ def e5_forecaster(manual, learned, test: SimulationResult) -> Dict:
                 win_u = pred.estimated_arrival_window_seconds
                 top1 += pred.candidate_next_cameras[0] == true_next
                 top2 += true_next in pred.candidate_next_cameras[:2]
+                top3 += true_next in pred.candidate_next_cameras[:3]
             nll.append(-math.log(max(ranked.get(true_next, 0.0), 1e-12)))
             cov_cam.append(win_c[0] <= true_dt <= win_c[1])
             cov_union.append(win_u[0] <= true_dt <= win_u[1])
             width_cam.append(win_c[1] - win_c[0])
             width_union.append(win_u[1] - win_u[0])
         n = max(len(events), 1)
-        out[name] = {"top1": top1 / n, "top2": top2 / n, "nll": float(np.mean(nll)),
+        out[name] = {"top1": top1 / n, "top2": top2 / n, "top3": top3 / n, "nll": float(np.mean(nll)),
                      "per_camera_window_coverage": float(np.mean(cov_cam)),
                      "per_camera_window_width_s": float(np.mean(width_cam)),
                      "union_window_coverage": float(np.mean(cov_union)),
@@ -454,9 +563,9 @@ def plot_summary(e4: Dict, e5: Dict, path: str) -> str:
     names = [n for n in e5 if n != "n_events"]
     x = np.arange(len(names))
     ax.bar(x - 0.2, [e5[n]["top1"] for n in names], 0.4, label="top-1", color="#2b6cb0")
-    ax.bar(x + 0.2, [e5[n]["top2"] for n in names], 0.4, label="top-2", color="#90cdf4")
+    ax.bar(x + 0.2, [e5[n]["top3"] for n in names], 0.4, label="top-3", color="#90cdf4")
     for i, n in enumerate(names):
-        ax.text(i, e5[n]["top2"] + 0.02, f"NLL {e5[n]['nll']:.2f}", ha="center", fontsize=7)
+        ax.text(i, e5[n]["top3"] + 0.02, f"NLL {e5[n]['nll']:.2f}", ha="center", fontsize=7)
     ax.set_xticks(x)
     ax.set_xticklabels([n.replace("+", "\n+") for n in names], fontsize=8)
     ax.set_ylim(0, 1.05)
@@ -500,6 +609,8 @@ def main() -> None:
         n_test, p_false_match=p_false_test, target_ids=targets)
     cand_sets = _target_candidates(test, targets, manual)
 
+    print("[E0] ablation (no topology / manual / learned) ...")
+    e0 = e0_ablation(manual, learned, test, cand_sets)
     print("[E2] travel time ...")
     e2 = e2_travel_time(manual, learned, test)
     print("[E3] pruner ...")
@@ -539,6 +650,7 @@ def main() -> None:
                    "n_reference": n_ref, "p_false_train": p_false_train, "p_false_test": p_false_test,
                    "quick": args.quick},
         "learner_stats": learner.stats,
+        "e0_ablation": e0,
         "e1_learning_curve": e1,
         "e2_travel_time": e2,
         "e3_pruner": e3,
@@ -553,8 +665,18 @@ def main() -> None:
         json.dump(results, f, indent=2)
 
     print("\n" + "=" * 65)
-    print("  SAFEPASS P3 TOPOLOGY EVALUATION")
+    print("  SAFEPASS P3 TOPOLOGY EVALUATION (SIMULATED DATA ONLY)")
     print("=" * 65)
+    hdr = f"{'':<13}{'P':>7}{'R':>7}{'F1':>7}{'rejF':>7}{'top1':>7}{'top3':>7}{'srch-':>8}{'hit':>7}"
+    print("ABLATION (a) no topology | (b) manual priors | (c) learned priors")
+    print(hdr)
+    for k, v in e0.items():
+        print(f"{k:<13}{v['precision']:>7.3f}{v['recall']:>7.3f}{v['f1']:>7.3f}"
+              f"{v['false_candidate_rejection_rate']:>7.3f}{v['next_camera_top1']:>7.3f}{v['next_camera_top3']:>7.3f}"
+              f"{100 * v['search_space_reduction']:>7.1f}%{v['next_sighting_inside_searched_space']:>7.3f}")
+    print(f"(rejF = injected false candidates kept out of the trajectory; srch- = mean reduction of camera x time "
+          f"cells searched vs watching all {len(manual.cameras)} cameras until period end; "
+          f"hit = next true sighting inside that reduced space)")
     print(f"E1 KL manual {e1['kl_manual']:.4f} | learned@{sizes[-1]} {e1['kl_learned'][-1]:.4f} "
           f"| uniform {e1['kl_uniform']:.4f}")
     print(f"E2 physical window cov {e2['physical_window_coverage']:.3f} (w {e2['physical_window_mean_width_s']:.0f}s) "
@@ -574,7 +696,7 @@ def main() -> None:
               f"greedy {r['greedy_learned_f1']:.3f} dp_manual {r['dp_manual_f1']:.3f} dp_learned {r['dp_learned_f1']:.3f}")
     for k, v in e5.items():
         if k != "n_events":
-            print(f"E5 {k:<17} top1 {v['top1']:.3f} top2 {v['top2']:.3f} NLL {v['nll']:.3f} "
+            print(f"E5 {k:<17} top1 {v['top1']:.3f} top2 {v['top2']:.3f} top3 {v['top3']:.3f} NLL {v['nll']:.3f} "
                   f"camWin cov {v['per_camera_window_coverage']:.3f} w {v['per_camera_window_width_s']:.0f}s")
     print(f"E6 score_pair {e6['pruner_score_pair_us']:.1f} us | forecast {e6['forecast_ms']:.3f} ms")
     print(f"Saved {RESULTS_PATH}, {MODEL_PATH}; runtime {results['runtime_seconds']:.1f}s")

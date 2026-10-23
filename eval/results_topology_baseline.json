@@ -19,6 +19,50 @@
     "ambiguous_returns": 54,
     "discarded_sightings": 2080
   },
+  "e0_ablation": {
+    "no_topology": {
+      "precision": 0.8850012863390789,
+      "recall": 0.9887898821500432,
+      "f1": 0.9340211783871845,
+      "false_candidate_rejection_rate": 0.18579234972677594,
+      "next_camera_top1": 0.125,
+      "next_camera_top3": 0.375,
+      "searched_cell_fraction": 1.0,
+      "search_space_reduction": 0.0,
+      "searched_camera_fraction": 1.0,
+      "searched_window_mean_s": 99.4695825223953,
+      "search_baseline_span_mean_s": 99.4695825223953,
+      "next_sighting_inside_searched_space": 1.0
+    },
+    "manual": {
+      "precision": 0.9997125610807703,
+      "recall": 0.9997125610807703,
+      "f1": 0.9997125610807703,
+      "false_candidate_rejection_rate": 0.9981785063752276,
+      "next_camera_top1": 0.21666666666666667,
+      "next_camera_top3": 0.65,
+      "searched_cell_fraction": 0.4316986470950101,
+      "search_space_reduction": 0.5683013529049898,
+      "searched_camera_fraction": 0.4270833333333333,
+      "searched_window_mean_s": 109.18333333333334,
+      "search_baseline_span_mean_s": 128.59987393257202,
+      "next_sighting_inside_searched_space": 0.6
+    },
+    "learned": {
+      "precision": 1.0,
+      "recall": 0.9997125610807703,
+      "f1": 0.999856259882133,
+      "false_candidate_rejection_rate": 1.0,
+      "next_camera_top1": 0.4166666666666667,
+      "next_camera_top3": 0.85,
+      "searched_cell_fraction": 0.7209457675162878,
+      "search_space_reduction": 0.2790542324837122,
+      "searched_camera_fraction": 0.40625,
+      "searched_window_mean_s": 188.1,
+      "search_baseline_span_mean_s": 128.59987393257202,
+      "next_sighting_inside_searched_space": 0.8666666666666667
+    }
+  },
   "e1_learning_curve": {
     "sizes": [
       0,
@@ -31,8 +75,8 @@
     ],
     "kl_manual": 0.19281928187115674,
     "kl_learned": [
-      0.16344258352446905,
-      0.07902623600237611,
+      0.16344258352446908,
+      0.0790262360023761,
       0.044003346333606294,
       0.021997518225738467,
       0.012801717602184504,
@@ -40,8 +84,8 @@
       0.005549379031544769
     ],
     "kl_learned_no_cleaning": [
-      0.16344258352446905,
-      0.08818847371458242,
+      0.16344258352446908,
+      0.0881884737145824,
       0.0724089596472211,
       0.05023519407461607,
       0.035560929209524,
@@ -49,8 +93,8 @@
       0.022814061294678323
     ],
     "kl_learned_clean_logs": [
-      0.16344258352446905,
-      0.07902623600237611,
+      0.16344258352446908,
+      0.0790262360023761,
       0.044003346333606294,
       0.021997518225738467,
       0.01249267256412321,
@@ -274,6 +318,7 @@
     "uniform": {
       "top1": 0.3390343698854341,
       "top2": 0.6415166393889773,
+      "top3": 0.880441898527,
       "nll": 1.1558252246772729,
       "per_camera_window_coverage": 0.7545008183306056,
       "per_camera_window_width_s": 88.69075589501122,
@@ -283,6 +328,7 @@
     "manual": {
       "top1": 0.348063284233497,
       "top2": 0.6072013093289689,
+      "top3": 0.8014184397163121,
       "nll": 1.2089382491741378,
       "per_camera_window_coverage": 0.6732133115111838,
       "per_camera_window_width_s": 76.36879432624113,
@@ -292,6 +338,7 @@
     "manual+momentum": {
       "top1": 0.40589198036006546,
       "top2": 0.6841243862520459,
+      "top3": 0.8385160938352427,
       "nll": 1.1607511784159996,
       "per_camera_window_coverage": 0.6732133115111838,
       "per_camera_window_width_s": 76.36879432624113,
@@ -301,6 +348,7 @@
     "learned": {
       "top1": 0.5291871249318058,
       "top2": 0.8096017457719585,
+      "top3": 0.9536279323513366,
       "nll": 1.027029033795501,
       "per_camera_window_coverage": 0.9459901800327333,
       "per_camera_window_width_s": 100.4760170196109,
@@ -310,6 +358,7 @@
     "learned+momentum": {
       "top1": 0.5651936715766503,
       "top2": 0.8183306055646481,
+      "top3": 0.9514457174031642,
       "nll": 0.9781239445581033,
       "per_camera_window_coverage": 0.9459901800327333,
       "per_camera_window_width_s": 100.4760170196109,
@@ -318,8 +367,8 @@
     }
   },
   "e6_latency": {
-    "pruner_score_pair_us": 3.4814500000720727,
-    "forecast_ms": 0.10173295000004146
+    "pruner_score_pair_us": 2.757500000006985,
+    "forecast_ms": 0.07706264999978885
   },
   "plots": {
     "venue": "eval\\plots\\p3_venue_graph.png",
@@ -330,5 +379,5 @@
     "forecast": "eval\\plots\\p3_forecast_example.png",
     "trajectory": "eval\\plots\\p3_trajectory_example.png"
   },
-  "runtime_seconds": 23.84471368789673
+  "runtime_seconds": 25.152061700820923
 }

@@ -4,8 +4,8 @@
 **Date:** October 2026
 **Track:** P3 - Venue Camera Topology (stretch track; does not block P1/P2)
 **Modules:** `topology/`, `eval/topology_baseline.py`
-**Data:** 100% synthetic walkers from `topology/simulator.py`. No images or real people, no minors' data.
-**Reproduce:** `python -m eval.topology_baseline` (about 25 s, seeded) and `python -m topology.test_pipeline`
+**Data:** **all results in this report are on simulated data** from `topology/simulator.py`. No images or real people, no minors' data. The simulator's assumptions are listed in §2 and their consequences in §4.
+**Reproduce:** `python -m eval.topology_baseline` (about 30 s, seeded) and `python -m topology.test_pipeline`
 **Raw numbers:** `eval/results_topology_baseline.json`. Learned model: `eval/p3_learned_model.json`
 
 ---
@@ -16,13 +16,16 @@ P3 learns the venue's camera topology from sighting logs instead of trusting han
 
 | Question | Manual priors / baseline | Learned model (P3) |
 |---|---|---|
+| Trajectory precision / recall (15% look-alikes) | 0.885 / 0.989 (biometric only) | **1.000 / 1.000** |
+| False candidates kept out of the trajectory | 18.6% (biometric only) | **100%** (manual: 99.8%) |
+| Operator search space (cameras × time vs watch everything) | -43.2% (manual), misses 40% of next sightings | **-27.9% of cells, 86.7% of next sightings inside it** |
 | Transition model error, weighted KL(true ‖ model) | 0.193 (uniform: 0.138) | **0.0055** (400 walkers) |
 | Travel-time window coverage on held-out transits | 67.4% (physical `[d/4.5, d/0.9]`) | **95.0%** (nominal 90%) |
 | Genuine vs look-alike ROC-AUC, cross-camera | 0.686 (biometric only) | 0.882 (× manual topology), **0.926** (× learned) |
 | Look-alikes rejected outright as teleports | - | **72.2%**, with **0.0%** of genuine sightings rejected |
 | Trajectory F1 (sighting-level) | 0.934 (biometric only), 0.743 (greedy) | **1.000** (DP); **0.981** under the 50%, 1-hop stress test |
 | Blind-spot flag precision / recall | 0.26 / 1.00 (physical windows) | **0.89 / 0.80** |
-| Next-camera top-1 / top-2 after a blind spot | 0.348 / 0.607 (manual priors) | **0.565 / 0.818** (learned + momentum) |
+| Next-camera top-1 / top-3 after a blind spot | 0.348 / 0.801 (manual priors) | **0.565 / 0.954** (learned + momentum) |
 | Latency | - | 3.5 µs per `score_pair`, 0.10 ms per `forecast` |
 
 The main finding: **topology alone turns a weak biometric separator (AUC 0.69) into a strong one (0.93), and the transition model can be learned from noisy re-ID logs without being corrupted by look-alikes.**
@@ -58,6 +61,26 @@ The reference `P(Cj|Ci)` is the *empirical* first-order transition frequency of 
 
 ## 3. Results
 
+### E0: Task 7 ablation - no topology vs manual priors vs learned priors
+
+Simulated data with injected false matches (60 targets, 15% look-alike rate). Per target, the operator has the confirmed trajectory up to the second-to-last camera visit and must decide where to search next.
+
+| | Precision | Recall | False-candidate rejection | Next-camera top-1 | Next-camera top-3 | Search-space reduction | Next sighting inside searched space |
+|---|---|---|---|---|---|---|---|
+| (a) No topology (biometric only) | 0.885 | 0.989 | 0.186 | 0.125* | 0.375* | 0% (all 8 cameras) | 1.000 by definition |
+| (b) Manual priors | 1.000 | 1.000 | 0.998 | 0.217 | 0.650 | 56.8% | **0.600** |
+| (c) Learned priors | 1.000 | 1.000 | **1.000** | **0.417** | **0.850** | 27.9% of cells kept | **0.867** |
+
+*Expected values of a random pick over all 8 cameras.
+
+Reading the table:
+
+- **Without topology, 81% of look-alike sightings end up in the operator's timeline**, and the next camera to watch is a coin toss across the whole venue.
+- **Both topology conditions reconstruct the trajectory perfectly and reject ≥99.8% of the false candidates.** The gain of the pipeline is dominated by topology structure (physical bounds + DP chain), not by whether the priors are manual or learned.
+- **Where learned priors matter: knowing *where* and *when* to look.** With manual priors, pruning to the top-mass cameras cuts the searched space by 57%, but 40% of the next true sightings fall outside it, because the manual arrival window `[d/4.5, d/0.9]` covers only 67% of real transits (E2) and the priors rank the next camera barely better than chance (top-1 0.217 vs 0.125). The learned model cuts the space to 28% of cells while keeping 86.7% of next sightings inside it.
+- The learned condition's reduction comes almost entirely from **camera pruning** (40.6% of cameras on average): its union arrival window (mean 188 s over the top-mass cameras) is often wider than the remaining search period (mean 129 s), so time pruning adds little until the window is refined per camera (per-true-camera windows are 100 s wide at 94.6% coverage, E5).
+- Search-space accounting: cells = (fraction of cameras searched) × (window width / remaining search period), capped at 1; "next sighting inside" = the next ground-truth observed visit starts in a searched camera within the searched window.
+
 ### E1: Learning `P(Cj|Ci)` (`plots/p3_learning_curve.png`, `plots/p3_venue_graph.png`)
 
 | Training walkers | 0 (cold) | 10 | 25 | 50 | 100 | 200 | 400 |
@@ -70,6 +93,7 @@ The reference `P(Cj|Ci)` is the *empirical* first-order transition frequency of 
 - About 10 walkers' worth of logs already halves the error of the manual priors.
 - **Chain cleaning** reduces each person's log to its topology-consistent dynamic-programming chain, using physical bounds only (not the priors being learned). It matches the clean-log upper bound: it discarded 2,080 sightings, which is about the number of injected look-alikes. Without cleaning, look-alikes leave 4× more error at 400 walkers.
 - With the default Laplace α = 1, the cold start is the prior blended toward uniform (0.163 here). With α = 0 it equals the manual priors exactly, which is tested.
+- Convergence to the simulator's *true* edge probabilities is a unit test with a stated tolerance: with 1,500 walkers (10% look-alikes) and first-order routing, mean |P_learned − P_true| falls 0.096 (manual) → 0.017 and max ≤ 0.06 (about two standard errors of the worst-observed node), monotonically in the number of walkers.
 
 ### E2: Travel-time model (`plots/p3_travel_time_fits.png`)
 
@@ -134,13 +158,13 @@ Because the physical `dt_max` is too tight (E2), "gap exceeds transit" fires on 
 
 ### E5: Blind-spot forecaster (1,833 events)
 
-| Configuration | Top-1 | Top-2 | NLL | Coverage of arrival window for the true camera | Width |
-|---|---|---|---|---|---|
-| Uniform over neighbours | 0.339 | 0.642 | 1.156 | 75.5% | 89 s |
-| Manual priors | 0.348 | 0.607 | 1.209 | 67.3% | 76 s |
-| Manual + momentum | 0.406 | 0.684 | 1.161 | 67.3% | 76 s |
-| Learned | 0.529 | 0.810 | 1.027 | 94.6% | 100 s |
-| **Learned + momentum** | **0.565** | **0.818** | **0.978** | 94.6% | 100 s |
+| Configuration | Top-1 | Top-2 | Top-3 | NLL | Coverage of arrival window for the true camera | Width |
+|---|---|---|---|---|---|---|
+| Uniform over neighbours | 0.339 | 0.642 | 0.880 | 1.156 | 75.5% | 89 s |
+| Manual priors | 0.348 | 0.607 | 0.801 | 1.209 | 67.3% | 76 s |
+| Manual + momentum | 0.406 | 0.684 | 0.839 | 1.161 | 67.3% | 76 s |
+| Learned | 0.529 | 0.810 | 0.954 | 1.027 | 94.6% | 100 s |
+| **Learned + momentum** | **0.565** | **0.818** | **0.951** | **0.978** | 94.6% | 100 s |
 
 - With these perturbed priors, manual priors are *worse than uniform* on NLL. That is exactly the failure mode hand-set topology risks.
 - Momentum (a backtrack penalty of 0.35 on the previous camera) adds about 4–6 points of top-1 accuracy on both bases.
@@ -181,3 +205,5 @@ pred = BlindSpotForecaster(g).forecast(last.camera_id, last.timestamp, rec.point
 - `coordinates` and `distance_meters` live only on the NetworkX graph.
 - The `estimated_arrival_window_seconds` window is relative to `last_seen_timestamp`.
 - `TransitionLearner` accepts simulator `Sighting`s, contract `Candidate`s (keyed by `case_id`), dicts or `(person_id, camera_id, timestamp)` tuples. It can be refit as real logs arrive.
+- **Stub JSON for integration is committed in `topology/stubs/`** (`python -m topology.stubs` regenerates): `camera_nodes.json` (List[CameraNode]), `candidates_pruned.json` (List[Candidate]), `trajectory.json` (List[TrajectoryPoint]), `spatial_prediction.json`, `search_case_result.json` (SearchCaseResult combining all of them), `venue_graph.json` (P3-internal graph format), `blind_spots.json` (P3 extension, not in the schema). All content is seeded synthetic data.
+- `python -m topology.visualizer` writes `eval/plots/p3_camera_graph.png`: the venue with every corridor labelled `[dt_min, dt_max]` and a reconstructed synthetic trajectory highlighted (dashed red = blind-spot hops along the inferred route, ringed cameras = inferred unseen cameras).

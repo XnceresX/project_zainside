@@ -168,19 +168,62 @@ def test_degradation_tracking():
     print("  [PASS] Degradation tracking tests passed")
 
 
+def test_multiview_synthesis():
+    """Test 3D projective perspective synthesis and multi-view enrollment."""
+    from face.multiview import (
+        synthesize_3d_perspective_view,
+        synthesize_multiview_gallery,
+        MultiViewEnrollmentEngine,
+    )
+
+    face = create_synthetic_face(200)
+
+    # 1. Perspective warping produces consistent shape
+    left_warp = synthesize_3d_perspective_view(face, yaw_degrees=-30.0)
+    assert left_warp.shape == face.shape, f"Warped shape mismatch: {left_warp.shape}"
+
+    right_warp = synthesize_3d_perspective_view(face, yaw_degrees=30.0)
+    assert right_warp.shape == face.shape
+
+    # 2. Multi-view gallery generation
+    views = synthesize_multiview_gallery(face)
+    assert "left_profile" in views
+    assert "front" in views
+    assert "right_profile" in views
+
+    # 3. MultiViewEnrollmentEngine enrollment
+    engine = MultiViewEnrollmentEngine()
+    item = engine.enroll("test_subject", face)
+    assert item.person_id == "test_subject"
+    assert len(item.embeddings) == 3
+    for view_name, emb in item.embeddings.items():
+        assert emb.shape == (512,), f"Embedding shape {emb.shape} for {view_name}"
+
+    # Self-matching with face crop
+    best_sim, best_view = item.match(item.aligned_crops["front"], engine.extractor)
+    assert best_sim > 0.95, f"Self-match similarity should be high, got {best_sim}"
+
+    print(f"  Enrolled views: {list(item.embeddings.keys())}")
+    print(f"  Self-match: {best_sim:.4f} (best view: {best_view})")
+    print("  [PASS] Multi-view synthesis tests passed")
+
+
 def main():
     print("=" * 60)
     print("  SAFEPASS P1 Face Pipeline -- Smoke Test")
     print("=" * 60)
 
-    print("\n[1/3] Quality Scoring")
+    print("\n[1/4] Quality Scoring")
     test_quality_scoring()
 
-    print("\n[2/3] Feature Extractor")
+    print("\n[2/4] Feature Extractor")
     test_extractor()
 
-    print("\n[3/3] Degradation Tracking")
+    print("\n[3/4] Degradation Tracking")
     test_degradation_tracking()
+
+    print("\n[4/4] Multi-View Synthesis & Enrollment")
+    test_multiview_synthesis()
 
     print("\n" + "=" * 60)
     print("  ALL P1 TESTS PASSED [PASS]")
@@ -189,3 +232,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

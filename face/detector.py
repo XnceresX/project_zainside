@@ -63,7 +63,8 @@ def align_face_5points(
 ) -> np.ndarray:
     """
     Applies 2D similarity transform (Umeyama / LMEDS) to warp face onto
-    canonical ArcFace 112x112 coordinate space.
+    canonical ArcFace 112x112 coordinate space. For extreme profile views
+    where eye distance collapses, falls back to aspect-preserving face crop.
     """
     if landmarks is None or len(landmarks) < 5 or image is None or image.size == 0:
         if image is not None and image.size > 0:
@@ -71,6 +72,26 @@ def align_face_5points(
         return np.zeros((output_size[1], output_size[0], 3), dtype=np.uint8)
 
     src_pts = landmarks[:5].astype(np.float32)
+    re, le = src_pts[0], src_pts[1]
+    eye_dist = float(np.linalg.norm(le - re))
+
+    # Extreme profile check: when eye distance is collapsed (< 8 px),
+    # affine warping to frontal landmarks creates heavy distortion.
+    if eye_dist < 8.0:
+        min_x = np.min(src_pts[:, 0])
+        max_x = np.max(src_pts[:, 0])
+        min_y = np.min(src_pts[:, 1])
+        max_y = np.max(src_pts[:, 1])
+        cx, cy = (min_x + max_x) / 2.0, (min_y + max_y) / 2.0
+        side = max(max_x - min_x, max_y - min_y) * 1.5
+        x1 = max(int(cx - side / 2.0), 0)
+        y1 = max(int(cy - side / 2.0), 0)
+        x2 = min(int(cx + side / 2.0), image.shape[1])
+        y2 = min(int(cy + side / 2.0), image.shape[0])
+        crop = image[y1:y2, x1:x2]
+        if crop.size > 0:
+            return cv2.resize(crop, output_size)
+
     M, _ = cv2.estimateAffinePartial2D(src_pts, ARCFACE_CANONICAL_5PTS, method=cv2.LMEDS)
     if M is None:
         return cv2.resize(image, output_size)
@@ -92,21 +113,16 @@ def verify_anatomical_face_geometry(
 ) -> bool:
     """
     Validates biological face geometric proportions to eliminate false-alarm
-    ghost detections (shirt folds, foliage, wall textures, car grilles).
-
-    Checks:
-      1. Bounding box aspect ratio (height / width in [0.65, 1.85]).
-      2. Inter-ocular distance relative to box width (in [0.15, 0.70]).
-      3. Vertical landmark hierarchy (eyes_y <= nose_y <= mouth_y).
-      4. Bilateral eye-mouth parallelism (|theta_eyes - theta_mouth| <= 30 deg).
+    ghost detections (clothing folds, walls, bed frames, background objects)
+    while reliably accepting human faces across frontal and profile poses.
     """
     x1, y1, x2, y2 = bbox
     w = max(x2 - x1, 1)
     h = max(y2 - y1, 1)
 
-    # 1. Aspect ratio check (human faces: height / width in [0.65, 1.85])
+    # 1. Aspect ratio check (human face bounding box: height / width in [0.70, 1.70])
     aspect_ratio = h / float(w)
-    if aspect_ratio < 0.65 or aspect_ratio > 1.85:
+    if aspect_ratio < 0.70 or aspect_ratio > 1.70:
         return False
 
     if landmarks is None or len(landmarks) < 5:
@@ -114,37 +130,58 @@ def verify_anatomical_face_geometry(
 
     re, le, nose, rm, lm = landmarks[0], landmarks[1], landmarks[2], landmarks[3], landmarks[4]
 
-    # 2. Inter-ocular distance ratio
-    eye_dist = float(np.linalg.norm(le - re))
-    eye_ratio = eye_dist / float(w)
-    if eye_ratio < 0.15 or eye_ratio > 0.70:
-        return False
+    # 2. Strict boundary check: all landmarks must reside inside the bounding box (10% tolerance)
+    margin_w = 0.10 * w
+    margin_h = 0.10 * h
+    for pt in [re, le, nose, rm, lm]:
+        if not (x1 - margin_w <= pt[0] <= x2 + margin_w and y1 - margin_h <= pt[1] <= y2 + margin_h):
+            return False
 
-    # 3. Vertical landmark hierarchy
+    # 3. Vertical landmark hierarchy (mouth must be below eyes)
     eye_mid_y = (re[1] + le[1]) / 2.0
     mouth_mid_y = (rm[1] + lm[1]) / 2.0
+    vert_span = mouth_mid_y - eye_mid_y
+
+    # For any human face, vertical span between eyes and mouth must be between 18% and 60% of box height
+    if vert_span < 0.18 * h or vert_span > 0.60 * h:
+        return False
+
+    # Nose vertical position: nose must sit between eyes and mouth (allowing slight pitch tolerance)
     nose_y = float(nose[1])
-
-    # Allow slight tolerance (5% of height) for moderate pitch angles
-    tol = 0.05 * h
-    if not (eye_mid_y - tol <= nose_y <= mouth_mid_y + tol):
+    if not (eye_mid_y - 0.15 * h <= nose_y <= mouth_mid_y + 0.15 * h):
         return False
 
-    # 4. Bilateral eye-mouth parallelism
-    dx_eyes = float(le[0] - re[0])
-    dy_eyes = float(le[1] - re[1])
-    dx_mouth = float(lm[0] - rm[0])
-    dy_mouth = float(lm[1] - rm[1])
+    # 4. Horizontal proportions
+    eye_dist = float(np.linalg.norm(le - re))
+    eye_ratio = eye_dist / float(w)
 
-    angle_eyes = math.degrees(math.atan2(dy_eyes, dx_eyes)) if (dx_eyes != 0 or dy_eyes != 0) else 0.0
-    angle_mouth = math.degrees(math.atan2(dy_mouth, dx_mouth)) if (dx_mouth != 0 or dy_mouth != 0) else 0.0
+    is_profile = eye_ratio < 0.18
 
-    angle_diff = abs(angle_eyes - angle_mouth)
-    if angle_diff > 180:
-        angle_diff = 360 - angle_diff
+    if not is_profile:
+        # Near frontal face checks
+        if eye_ratio < 0.18 or eye_ratio > 0.65:
+            return False
 
-    if angle_diff > 30.0:  # Eyes and mouth line must be roughly parallel
-        return False
+        # Bilateral eye-mouth parallelism for near-frontal faces
+        dx_eyes = float(le[0] - re[0])
+        dy_eyes = float(le[1] - re[1])
+        dx_mouth = float(lm[0] - rm[0])
+        dy_mouth = float(lm[1] - rm[1])
+
+        angle_eyes = math.degrees(math.atan2(dy_eyes, dx_eyes)) if (dx_eyes != 0 or dy_eyes != 0) else 0.0
+        angle_mouth = math.degrees(math.atan2(dy_mouth, dx_mouth)) if (dx_mouth != 0 or dy_mouth != 0) else 0.0
+
+        angle_diff = abs(angle_eyes - angle_mouth)
+        if angle_diff > 180:
+            angle_diff = 360 - angle_diff
+
+        if angle_diff > 35.0:
+            return False
+    else:
+        # Profile face checks: verify nose horizontal projection relative to eyes
+        dx_nose = abs(nose[0] - eye_mid_y)
+        if dx_nose > 0.50 * w:
+            return False
 
     return True
 
@@ -192,7 +229,7 @@ class FaceDetector:
         self,
         model_path: Optional[str] = None,
         backend: Optional[str] = None,  # "scrfd", "yunet", "mediapipe", "haar", or None (auto)
-        detection_confidence: float = 0.5,
+        detection_confidence: float = 0.55,
         max_faces: int = 10,
         enable_anatomical_filter: bool = True,
     ):
@@ -477,6 +514,7 @@ class FaceDetector:
 
     def _detect_yunet(self, frame: np.ndarray, h: int, w: int) -> List[DetectedFace]:
         self._yunet.setInputSize((w, h))
+        self._yunet.setScoreThreshold(self.detection_confidence)
         _, detections = self._yunet.detect(frame)
         if detections is None or len(detections) == 0:
             return []

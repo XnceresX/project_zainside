@@ -84,3 +84,30 @@ SAFE_PASS/
 ```bash
 pip install -r requirements.txt
 ```
+
+### 📷 Live Laptop Front Webcam Multimodal Person Identification (Tracks P1 & P2)
+
+Run the real-time webcam face & appearance identification engine combining ArcFace biometrics, OSNet body re-ID, and HSV clothing color signatures:
+
+```bash
+# 1. Native desktop window with keyboard controls:
+python -m face.webcam_live
+
+# Or double-click / run the launcher:
+run_webcam.bat
+
+# 2. Enroll an existing photo before launch with appearance details:
+python -m face.webcam_live --enroll "Zain" path/to/photo.jpg --upper "black" --lower "blue" --desc "Dark shirt, blue denim"
+
+# 3. Web streaming dashboard (browser):
+python -m face.webcam_live --web --port 8000
+```
+
+**Interactive Controls in Webcam Window:**
+- **`[E]`** : **Enroll Face + Appearance Details** — captures face + body crop, auto-detects current shirt & pants colors, and opens a dialog to confirm person name, clothing colors, and appearance description.
+- **`[S]`** : **Take snapshot** — saves timestamped surveillance image with HUD to `data/snapshots/`.
+- **`[M]`** : **Toggle selfie mirror** — flips video horizontally.
+- **`[L]`** : **Toggle landmarks** — shows/hides 5-point anatomical facial landmark dots and alignment lines.
+- **`[C]`** : **Clear gallery** — resets registered identities.
+- **`[Q]`** or **`ESC`** : Exit webcam application.
+

@@ -95,23 +95,24 @@ def synthesize_3d_perspective_view(
     return warped
 
 
+DEFAULT_MULTIVIEW_ANGLES = [
+    ("left_quarter", -25.0, 0.0),
+    ("front", 0.0, 0.0),
+    ("right_quarter", 25.0, 0.0),
+    ("pitch_up", 0.0, 15.0),
+    ("pitch_down", 0.0, -12.0),
+]
+
+
 def synthesize_multiview_gallery(
     image: np.ndarray,
     angles: Optional[List[Tuple[str, float, float]]] = None,
 ) -> Dict[str, np.ndarray]:
     """
-    Generates an enriched multi-view dictionary from a single photo.
-    Default angles:
-      - 'left_profile':  yaw = -30.0 deg
-      - 'front':         yaw =   0.0 deg
-      - 'right_profile': yaw = +30.0 deg
+    Generates an enriched multi-view dictionary from a single photo across 3D poses.
     """
     if angles is None:
-        angles = [
-            ("left_profile", -30.0, 0.0),
-            ("front", 0.0, 0.0),
-            ("right_profile", 30.0, 0.0),
-        ]
+        angles = DEFAULT_MULTIVIEW_ANGLES
 
     views: Dict[str, np.ndarray] = {}
     for name, yaw, pitch in angles:
@@ -168,15 +169,11 @@ class MultiViewEnrollmentEngine:
         angles: Optional[List[Tuple[str, float, float]]] = None,
     ) -> MultiViewGalleryItem:
         """
-        Takes 1 frontal photo, generates multi-angle viewpoints, aligns crops,
+        Takes 1 photo, generates multi-angle viewpoints, aligns crops,
         and extracts 512-d embeddings for each angle.
         """
         if angles is None:
-            angles = [
-                ("left_profile", -30.0, 0.0),
-                ("front", 0.0, 0.0),
-                ("right_profile", 30.0, 0.0),
-            ]
+            angles = DEFAULT_MULTIVIEW_ANGLES
 
         # First detect face on original frontal image
         det_front = self.detector.detect_single(frontal_photo)

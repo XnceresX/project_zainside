@@ -1,0 +1,50 @@
+{
+  "timestamp": "2026-10-24T13:44:50",
+  "n_pairs": 2000,
+  "seed": 42,
+  "calibrate": true,
+  "strategies": {
+    "face_only": {
+      "auc": 0.9804,
+      "eer": 0.064,
+      "tar_at_far1pct": 0.732,
+      "tar_at_far01pct": 0.437,
+      "average_precision": 0.9813
+    },
+    "app_only": {
+      "auc": 0.951,
+      "eer": 0.115,
+      "tar_at_far1pct": 0.42,
+      "tar_at_far01pct": 0.0,
+      "average_precision": 0.9509
+    },
+    "color_only": {
+      "auc": 0.9051,
+      "eer": 0.173,
+      "tar_at_far1pct": 0.0,
+      "tar_at_far01pct": 0.0,
+      "average_precision": 0.9022
+    },
+    "fixed_equal": {
+      "auc": 0.9524,
+      "eer": 0.112,
+      "tar_at_far1pct": 0.812,
+      "tar_at_far01pct": 0.712,
+      "average_precision": 0.9651
+    },
+    "fixed_P2": {
+      "auc": 0.9349,
+      "eer": 0.1295,
+      "tar_at_far1pct": 0.83,
+      "tar_at_far01pct": 0.796,
+      "average_precision": 0.9555
+    },
+    "dynamic": {
+      "auc": 0.9969,
+      "eer": 0.026,
+      "tar_at_far1pct": 0.948,
+      "tar_at_far01pct": 0.758,
+      "average_precision": 0.997
+    }
+  }
+}

@@ -156,7 +156,10 @@ class AppearanceExtractor:
             self._torch = torch
 
             import torchreid
-            from torchreid.utils import FeatureExtractor
+            try:
+                FeatureExtractor = torchreid.utils.FeatureExtractor
+            except AttributeError:
+                from torchreid.reid.utils import FeatureExtractor
 
             # Resolve weights path
             resolved_weights = self._resolve_weights()
@@ -167,8 +170,10 @@ class AppearanceExtractor:
                 device = "cpu"
                 print("[AppearanceExtractor] CUDA unavailable, falling back to CPU.")
 
+            # Default to osnet_x1_0 if model_name is osnet_ain_x1_0
+            m_name = "osnet_x1_0" if "ain" in self.model_name else self.model_name
             self._extractor = FeatureExtractor(
-                model_name=self.model_name,
+                model_name=m_name,
                 model_path=resolved_weights or "",
                 device=device,
             )

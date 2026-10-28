@@ -1,20 +1,25 @@
 @echo off
-title "SAFEPASS Live Webcam Multimodal Surveillance Web Dashboard"
+title "SAFEPASS CCTV AI Command Center - Web Dashboard"
 set PYTHON_EXE=C:\Users\zain sulaiman\AppData\Local\Python\bin\python.exe
 
 echo ================================================================
-echo   SAFEPASS - Live Multimodal Web Surveillance Dashboard
+echo   SAFEPASS CCTV AI COMMAND CENTER - WEB DASHBOARD
 echo ================================================================
-echo Starting live web streaming server at: http://localhost:8000
-echo Open http://localhost:8000 in your browser to view the demo!
-echo Press Ctrl+C in this terminal window to stop the server.
+echo Starting AI Surveillance Server on http://localhost:8000
+echo.
+echo Features:
+echo   - Dynamic Multi-CCTV Playback (Native Smooth FPS)
+echo   - Independent Controls: Play, Pause, Step +/- 5f / +/- 1f on any camera
+echo   - Add, Upload, or Delete Camera Footages Dynamically
+echo   - Multimodal Re-ID: Confirmed Matches (Green) vs Unknown Intruder (Red)
+echo   - Live Cross-Camera Person Verification Evidence Report
 echo ================================================================
 echo.
 
 if exist "%PYTHON_EXE%" (
-    "%PYTHON_EXE%" -m face.webcam_live --web --port 8000 %*
+    "%PYTHON_EXE%" -m uvicorn backend.server:app --host 0.0.0.0 --port 8000
 ) else (
-    py -m face.webcam_live --web --port 8000 %* 2>nul || python -m face.webcam_live --web --port 8000 %*
+    python -m uvicorn backend.server:app --host 0.0.0.0 --port 8000
 )
 
 if %ERRORLEVEL% neq 0 (

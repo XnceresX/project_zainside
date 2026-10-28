@@ -26,7 +26,37 @@ if str(root_dir) not in sys.path:
 from reid.detector import PersonDetector
 from reid.tracker import SimpleTracker
 from reid.embedding import ReIDFeatureExtractor, cosine_similarity
-from cctv.sequential_reid import analyze_torso_appearance, check_clothing_compatibility
+def analyze_torso_appearance(crop: np.ndarray) -> Tuple[float, float, str, np.ndarray]:
+    """Extracts torso luminance and clothing category for verification gating."""
+    if crop is None or crop.size == 0:
+        return 0.0, 0.0, "unknown", np.zeros((10, 10, 3), dtype=np.uint8)
+    h, w = crop.shape[:2]
+    y1, y2 = int(0.15 * h), int(0.55 * h)
+    x1, x2 = int(0.15 * w), int(0.85 * w)
+    torso = crop[y1:y2, x1:x2]
+    if torso.size == 0:
+        torso = crop
+    hsv = cv2.cvtColor(torso, cv2.COLOR_BGR2HSV)
+    v_mean = float(np.mean(hsv[:, :, 2]))
+    s_mean = float(np.mean(hsv[:, :, 1]))
+    if v_mean < 80:
+        cloth_type = "dark"
+    elif v_mean > 170 and s_mean < 50:
+        cloth_type = "white"
+    else:
+        cloth_type = "light"
+    return v_mean, s_mean, cloth_type, torso
+
+
+def check_clothing_compatibility(
+    ref_v: float, ref_cloth: str, target_v: float, target_cloth: str
+) -> Tuple[bool, str]:
+    """Rejects intruder if clothing color/luminance strongly diverges from reference target."""
+    if ref_cloth == "dark" and target_cloth in ("white", "light") and (target_v - ref_v) > 55:
+        return True, f"Torso mismatch: Target is {target_cloth} (V={target_v:.0f}) vs Ref {ref_cloth} (V={ref_v:.0f})"
+    if ref_cloth in ("white", "light") and target_cloth == "dark" and (ref_v - target_v) > 55:
+        return True, f"Torso mismatch: Target is {target_cloth} (V={target_v:.0f}) vs Ref {ref_cloth} (V={ref_v:.0f})"
+    return False, ""
 
 
 CACHE_FILE = root_dir / "data" / "reid_cache.json"
